@@ -137,6 +137,56 @@ pub struct IacResource {
     pub identity: IdentityInfo,
 }
 
+impl IacResource {
+    /// Attributes that are user-provided inputs (not purely computed).
+    #[must_use]
+    pub fn input_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes
+            .iter()
+            .filter(|a| !a.computed || a.required)
+            .collect()
+    }
+
+    /// Attributes that appear in the output/state (computed or required).
+    #[must_use]
+    pub fn output_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes
+            .iter()
+            .filter(|a| a.computed || a.required)
+            .collect()
+    }
+
+    /// Required attribute canonical names.
+    #[must_use]
+    pub fn required_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.required)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+
+    /// Sensitive attribute canonical names.
+    #[must_use]
+    pub fn sensitive_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.sensitive)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+
+    /// Immutable attribute canonical names.
+    #[must_use]
+    pub fn immutable_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.immutable)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+}
+
 /// A fully resolved data source in the platform-independent IR.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IacDataSource {
@@ -146,6 +196,56 @@ pub struct IacDataSource {
     pub read_schema: String,
     pub read_response_schema: Option<String>,
     pub attributes: Vec<IacAttribute>,
+}
+
+impl IacDataSource {
+    /// Attributes that are user-provided inputs (not purely computed).
+    #[must_use]
+    pub fn input_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes
+            .iter()
+            .filter(|a| !a.computed || a.required)
+            .collect()
+    }
+
+    /// Attributes that appear in the output/state (computed or required).
+    #[must_use]
+    pub fn output_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes
+            .iter()
+            .filter(|a| a.computed || a.required)
+            .collect()
+    }
+
+    /// Required attribute names.
+    #[must_use]
+    pub fn required_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.required)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+
+    /// Sensitive attribute names.
+    #[must_use]
+    pub fn sensitive_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.sensitive)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+
+    /// Computed attribute names.
+    #[must_use]
+    pub fn computed_attribute_names(&self) -> Vec<&str> {
+        self.attributes
+            .iter()
+            .filter(|a| a.computed)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
 }
 
 /// Provider-level configuration in the platform-independent IR.

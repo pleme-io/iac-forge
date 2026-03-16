@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::error::IacForgeError;
 use crate::ir::{IacDataSource, IacProvider, IacResource};
 
 /// Kind of generated artifact.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ArtifactKind {
     Resource,
     DataSource,
@@ -28,7 +30,7 @@ impl std::fmt::Display for ArtifactKind {
 }
 
 /// A single generated file from a backend.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GeneratedArtifact {
     /// Relative output path for the file.
     pub path: String,
@@ -36,6 +38,12 @@ pub struct GeneratedArtifact {
     pub content: String,
     /// What kind of artifact this is.
     pub kind: ArtifactKind,
+}
+
+impl std::fmt::Display for GeneratedArtifact {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}", self.kind, self.path)
+    }
 }
 
 /// Naming convention for a specific platform.
@@ -351,5 +359,45 @@ mod tests {
             naming.data_source_type_name("auth_method", "akeyless"),
             naming.resource_type_name("auth_method", "akeyless")
         );
+    }
+
+    #[test]
+    fn generated_artifact_display() {
+        let artifact = GeneratedArtifact {
+            path: "resource_secret.go".to_string(),
+            content: "package main".to_string(),
+            kind: ArtifactKind::Resource,
+        };
+        assert_eq!(artifact.to_string(), "[resource] resource_secret.go");
+    }
+
+    #[test]
+    fn generated_artifact_serialize_roundtrip() {
+        let artifact = GeneratedArtifact {
+            path: "provider.go".to_string(),
+            content: "code here".to_string(),
+            kind: ArtifactKind::Provider,
+        };
+        let json = serde_json::to_string(&artifact).expect("serialize");
+        let deserialized: GeneratedArtifact = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(artifact, deserialized);
+    }
+
+    #[test]
+    fn artifact_kind_serialize_roundtrip() {
+        let kinds = vec![
+            ArtifactKind::Resource,
+            ArtifactKind::DataSource,
+            ArtifactKind::Provider,
+            ArtifactKind::Test,
+            ArtifactKind::Schema,
+            ArtifactKind::Module,
+            ArtifactKind::Metadata,
+        ];
+        for kind in kinds {
+            let json = serde_json::to_string(&kind).expect("serialize");
+            let deserialized: ArtifactKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(kind, deserialized);
+        }
     }
 }

@@ -5,6 +5,37 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::IacForgeError;
 
+/// Trait for loading specs from TOML.
+///
+/// Eliminates identical `load()` methods across spec types. Provides both
+/// file-based loading and string-based parsing (useful for tests).
+pub trait ConfigLoader: Sized + serde::de::DeserializeOwned {
+    /// Load from a TOML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file can't be read or parsed.
+    fn load(path: &Path) -> Result<Self, IacForgeError> {
+        let content = std::fs::read_to_string(path)?;
+        let spec: Self = toml::from_str(&content)?;
+        Ok(spec)
+    }
+
+    /// Parse from a TOML string (useful for tests).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string can't be parsed.
+    fn from_toml(content: &str) -> Result<Self, IacForgeError> {
+        let spec: Self = toml::from_str(content)?;
+        Ok(spec)
+    }
+}
+
+impl ConfigLoader for ResourceSpec {}
+impl ConfigLoader for DataSourceSpec {}
+impl ConfigLoader for ProviderSpec {}
+
 /// Top-level resource specification loaded from TOML.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSpec {
@@ -115,13 +146,13 @@ pub struct ProviderDefaults {
 impl ResourceSpec {
     /// Load a resource spec from a TOML file.
     ///
+    /// Delegates to [`ConfigLoader::load`].
+    ///
     /// # Errors
     ///
     /// Returns an error if the file can't be read or parsed.
     pub fn load(path: &Path) -> Result<Self, IacForgeError> {
-        let content = std::fs::read_to_string(path)?;
-        let spec: Self = toml::from_str(&content)?;
-        Ok(spec)
+        <Self as ConfigLoader>::load(path)
     }
 
     /// Validate the resource spec against an OpenAPI spec.
@@ -163,13 +194,13 @@ impl ResourceSpec {
 impl ProviderSpec {
     /// Load a provider spec from a TOML file.
     ///
+    /// Delegates to [`ConfigLoader::load`].
+    ///
     /// # Errors
     ///
     /// Returns an error if the file can't be read or parsed.
     pub fn load(path: &Path) -> Result<Self, IacForgeError> {
-        let content = std::fs::read_to_string(path)?;
-        let spec: Self = toml::from_str(&content)?;
-        Ok(spec)
+        <Self as ConfigLoader>::load(path)
     }
 }
 
@@ -204,13 +235,13 @@ pub struct ReadMapping {
 impl DataSourceSpec {
     /// Load a data source spec from a TOML file.
     ///
+    /// Delegates to [`ConfigLoader::load`].
+    ///
     /// # Errors
     ///
     /// Returns an error if the file can't be read or parsed.
     pub fn load(path: &Path) -> Result<Self, IacForgeError> {
-        let content = std::fs::read_to_string(path)?;
-        let spec: Self = toml::from_str(&content)?;
-        Ok(spec)
+        <Self as ConfigLoader>::load(path)
     }
 
     /// Validate the data source spec against an OpenAPI spec.
@@ -241,6 +272,62 @@ impl DataSourceSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_loader_from_toml_resource() {
+        let toml_str = r#"
+[resource]
+name = "test_res"
+description = "Test"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Create"
+read_endpoint = "/read"
+read_schema = "Read"
+delete_endpoint = "/delete"
+delete_schema = "Delete"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("from_toml");
+        assert_eq!(spec.resource.name, "test_res");
+    }
+
+    #[test]
+    fn config_loader_from_toml_data_source() {
+        let toml_str = r#"
+[data_source]
+name = "test_ds"
+description = "Test"
+
+[read]
+endpoint = "/read"
+schema = "Read"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("from_toml");
+        assert_eq!(spec.data_source.name, "test_ds");
+    }
+
+    #[test]
+    fn config_loader_from_toml_provider() {
+        let toml_str = r#"
+[provider]
+name = "test"
+description = "Test"
+version = "1.0.0"
+"#;
+        let spec = ProviderSpec::from_toml(toml_str).expect("from_toml");
+        assert_eq!(spec.provider.name, "test");
+    }
+
+    #[test]
+    fn config_loader_from_toml_error() {
+        let result = ResourceSpec::from_toml("not valid toml {{{");
+        assert!(result.is_err());
+    }
 
     #[test]
     fn parse_resource_spec() {
