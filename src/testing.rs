@@ -363,4 +363,141 @@ mod tests {
             Some(vec!["a".to_string(), "b".to_string()])
         );
     }
+
+    #[test]
+    fn test_resource_with_type_integer() {
+        let r = test_resource_with_type("counter", "count", IacType::Integer);
+        assert_eq!(r.attributes.len(), 1);
+        assert_eq!(r.attributes[0].iac_type, IacType::Integer);
+        assert!(r.attributes[0].required);
+    }
+
+    #[test]
+    fn test_resource_with_type_float() {
+        let r = test_resource_with_type("metric", "value", IacType::Float);
+        assert_eq!(r.attributes[0].iac_type, IacType::Float);
+    }
+
+    #[test]
+    fn test_resource_with_type_list() {
+        let r = test_resource_with_type(
+            "tagged",
+            "tags",
+            IacType::List(Box::new(IacType::String)),
+        );
+        assert_eq!(
+            r.attributes[0].iac_type,
+            IacType::List(Box::new(IacType::String))
+        );
+    }
+
+    #[test]
+    fn test_resource_with_type_map() {
+        let r = test_resource_with_type(
+            "config",
+            "settings",
+            IacType::Map(Box::new(IacType::String)),
+        );
+        assert_eq!(
+            r.attributes[0].iac_type,
+            IacType::Map(Box::new(IacType::String))
+        );
+    }
+
+    #[test]
+    fn test_resource_with_type_set() {
+        let r = test_resource_with_type(
+            "unique",
+            "items",
+            IacType::Set(Box::new(IacType::Integer)),
+        );
+        assert_eq!(
+            r.attributes[0].iac_type,
+            IacType::Set(Box::new(IacType::Integer))
+        );
+    }
+
+    #[test]
+    fn test_resource_with_type_object() {
+        let r = test_resource_with_type(
+            "complex",
+            "config",
+            IacType::Object {
+                name: "Config".to_string(),
+                fields: vec![],
+            },
+        );
+        assert_eq!(
+            r.attributes[0].iac_type,
+            IacType::Object {
+                name: "Config".to_string(),
+                fields: vec![]
+            }
+        );
+    }
+
+    #[test]
+    fn test_resource_with_type_enum() {
+        let r = test_resource_with_type(
+            "status",
+            "state",
+            IacType::Enum {
+                values: vec!["active".to_string(), "inactive".to_string()],
+                underlying: Box::new(IacType::String),
+            },
+        );
+        assert_eq!(
+            r.attributes[0].iac_type,
+            IacType::Enum {
+                values: vec!["active".to_string(), "inactive".to_string()],
+                underlying: Box::new(IacType::String)
+            }
+        );
+    }
+
+    #[test]
+    fn test_resource_with_type_any() {
+        let r = test_resource_with_type("dynamic", "data", IacType::Any);
+        assert_eq!(r.attributes[0].iac_type, IacType::Any);
+    }
+
+    #[test]
+    fn test_attribute_builder_hyphenated_name() {
+        let attr = TestAttributeBuilder::new("my-field-name", IacType::String).build();
+        assert_eq!(attr.api_name, "my-field-name");
+        assert_eq!(attr.canonical_name, "my_field_name");
+    }
+
+    #[test]
+    fn test_attribute_builder_already_snake_case() {
+        let attr = TestAttributeBuilder::new("already_snake", IacType::String).build();
+        assert_eq!(attr.api_name, "already_snake");
+        assert_eq!(attr.canonical_name, "already_snake");
+    }
+
+    #[test]
+    fn test_resource_crud_endpoints() {
+        let r = test_resource("widget");
+        assert_eq!(r.crud.create_endpoint, "/create-widget");
+        assert_eq!(r.crud.read_endpoint, "/get-widget");
+        assert_eq!(r.crud.delete_endpoint, "/delete-widget");
+        assert!(r.crud.update_endpoint.is_none());
+        assert!(r.crud.update_schema.is_none());
+    }
+
+    #[test]
+    fn test_data_source_read_info() {
+        let ds = test_data_source("info");
+        assert_eq!(ds.read_endpoint, "/get-info");
+        assert_eq!(ds.read_schema, "Getinfo");
+        assert!(ds.read_response_schema.is_none());
+    }
+
+    #[test]
+    fn test_resource_with_type_identity() {
+        let r = test_resource_with_type("item", "my_id", IacType::String);
+        assert_eq!(r.identity.id_field, "my_id");
+        assert_eq!(r.identity.import_field, "my_id");
+        assert!(r.identity.force_replace_fields.is_empty());
+    }
 }

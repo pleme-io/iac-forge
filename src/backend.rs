@@ -400,4 +400,342 @@ mod tests {
             assert_eq!(kind, deserialized);
         }
     }
+
+    #[test]
+    fn artifact_kind_display_all_variants() {
+        assert_eq!(ArtifactKind::DataSource.to_string(), "data_source");
+        assert_eq!(ArtifactKind::Module.to_string(), "module");
+        assert_eq!(ArtifactKind::Metadata.to_string(), "metadata");
+    }
+
+    /// Backend that returns errors for resource generation.
+    struct FailingBackend;
+
+    struct FailingNaming;
+
+    impl NamingConvention for FailingNaming {
+        fn resource_type_name(&self, resource_name: &str, provider_name: &str) -> String {
+            format!("{provider_name}_{resource_name}")
+        }
+        fn file_name(&self, resource_name: &str, _kind: &ArtifactKind) -> String {
+            format!("{resource_name}.go")
+        }
+        fn field_name(&self, api_name: &str) -> String {
+            api_name.to_string()
+        }
+    }
+
+    impl Backend for FailingBackend {
+        fn platform(&self) -> &str {
+            "failing"
+        }
+        fn generate_resource(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Err(IacForgeError::BackendError(
+                "resource generation failed".to_string(),
+            ))
+        }
+        fn generate_data_source(
+            &self,
+            _ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &FailingNaming
+        }
+    }
+
+    #[test]
+    fn generate_all_propagates_resource_error() {
+        let backend = FailingBackend;
+        let provider = make_test_provider();
+        let resources = vec![make_test_resource("r1")];
+        let data_sources = vec![];
+
+        let result = backend.generate_all(&provider, &resources, &data_sources);
+        assert!(result.is_err(), "should propagate resource generation error");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("resource generation failed"),
+            "error message should contain failure reason"
+        );
+    }
+
+    /// Backend that fails on data source generation.
+    struct FailingDsBackend;
+
+    impl Backend for FailingDsBackend {
+        fn platform(&self) -> &str {
+            "failing_ds"
+        }
+        fn generate_resource(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_data_source(
+            &self,
+            _ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Err(IacForgeError::BackendError(
+                "data source generation failed".to_string(),
+            ))
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &FailingNaming
+        }
+    }
+
+    #[test]
+    fn generate_all_propagates_data_source_error() {
+        let backend = FailingDsBackend;
+        let provider = make_test_provider();
+        let resources = vec![];
+        let data_sources = vec![make_test_data_source("ds1")];
+
+        let result = backend.generate_all(&provider, &resources, &data_sources);
+        assert!(
+            result.is_err(),
+            "should propagate data source generation error"
+        );
+    }
+
+    /// Backend that overrides validate_resource.
+    struct ValidatingBackend;
+
+    impl Backend for ValidatingBackend {
+        fn platform(&self) -> &str {
+            "validating"
+        }
+        fn generate_resource(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_data_source(
+            &self,
+            _ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &TestNaming
+        }
+        fn validate_resource(
+            &self,
+            resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Vec<String> {
+            let mut errors = Vec::new();
+            if resource.attributes.is_empty() {
+                errors.push("resource has no attributes".to_string());
+            }
+            errors
+        }
+    }
+
+    #[test]
+    fn validate_resource_override_returns_errors() {
+        let backend = ValidatingBackend;
+        let provider = make_test_provider();
+        let resource = make_test_resource("empty");
+        // resource has no attributes, so validation should report an error
+        let errors = backend.validate_resource(&resource, &provider);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0], "resource has no attributes");
+    }
+
+    #[test]
+    fn validate_resource_override_returns_empty_for_valid() {
+        let backend = ValidatingBackend;
+        let provider = make_test_provider();
+        let mut resource = make_test_resource("valid");
+        resource.attributes.push(crate::ir::IacAttribute {
+            api_name: "name".to_string(),
+            canonical_name: "name".to_string(),
+            description: String::new(),
+            iac_type: crate::ir::IacType::String,
+            required: true,
+            computed: false,
+            sensitive: false,
+            immutable: false,
+            default_value: None,
+            enum_values: None,
+            read_path: None,
+            update_only: false,
+        });
+        let errors = backend.validate_resource(&resource, &provider);
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn generate_all_empty_inputs() {
+        let backend = TestBackend;
+        let provider = make_test_provider();
+        let artifacts = backend
+            .generate_all(&provider, &[], &[])
+            .expect("generate_all");
+        // Only provider artifact
+        assert_eq!(artifacts.len(), 1);
+        assert_eq!(artifacts[0].kind, ArtifactKind::Provider);
+    }
+
+    /// Backend that fails on provider generation.
+    struct FailingProviderBackend;
+
+    impl Backend for FailingProviderBackend {
+        fn platform(&self) -> &str {
+            "failing_provider"
+        }
+        fn generate_resource(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_data_source(
+            &self,
+            _ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Err(IacForgeError::BackendError(
+                "provider generation failed".to_string(),
+            ))
+        }
+        fn generate_test(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &FailingNaming
+        }
+    }
+
+    #[test]
+    fn generate_all_propagates_provider_error() {
+        let backend = FailingProviderBackend;
+        let provider = make_test_provider();
+        let result = backend.generate_all(&provider, &[], &[]);
+        assert!(result.is_err(), "should propagate provider generation error");
+    }
+
+    /// Backend that fails on test generation.
+    struct FailingTestBackend;
+
+    impl Backend for FailingTestBackend {
+        fn platform(&self) -> &str {
+            "failing_test"
+        }
+        fn generate_resource(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_data_source(
+            &self,
+            _ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Err(IacForgeError::BackendError(
+                "test generation failed".to_string(),
+            ))
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &FailingNaming
+        }
+    }
+
+    #[test]
+    fn generate_all_propagates_test_error() {
+        let backend = FailingTestBackend;
+        let provider = make_test_provider();
+        let resources = vec![make_test_resource("r1")];
+        let result = backend.generate_all(&provider, &resources, &[]);
+        assert!(result.is_err(), "should propagate test generation error");
+    }
 }

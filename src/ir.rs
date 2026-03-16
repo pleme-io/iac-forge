@@ -560,4 +560,256 @@ mod tests {
         assert_eq!(ds.required_attribute_names(), vec!["id"]);
         assert_eq!(ds.sensitive_attribute_names(), vec!["password"]);
     }
+
+    #[test]
+    fn resource_input_attributes_mix() {
+        use crate::testing::TestAttributeBuilder;
+        let r = IacResource {
+            name: "mix".to_string(),
+            description: String::new(),
+            category: "test".to_string(),
+            crud: CrudInfo {
+                create_endpoint: "/create".to_string(),
+                create_schema: "Create".to_string(),
+                update_endpoint: None,
+                update_schema: None,
+                read_endpoint: "/read".to_string(),
+                read_schema: "Read".to_string(),
+                read_response_schema: None,
+                delete_endpoint: "/delete".to_string(),
+                delete_schema: "Delete".to_string(),
+            },
+            attributes: vec![
+                TestAttributeBuilder::new("req_only", IacType::String)
+                    .required()
+                    .build(),
+                TestAttributeBuilder::new("comp_only", IacType::String)
+                    .computed()
+                    .build(),
+                TestAttributeBuilder::new("comp_and_req", IacType::String)
+                    .computed()
+                    .required()
+                    .build(),
+                TestAttributeBuilder::new("optional", IacType::String).build(),
+            ],
+            identity: IdentityInfo {
+                id_field: "req_only".to_string(),
+                import_field: "req_only".to_string(),
+                force_replace_fields: vec![],
+            },
+        };
+
+        let inputs = r.input_attributes();
+        let input_names: Vec<&str> = inputs.iter().map(|a| a.canonical_name.as_str()).collect();
+        // Input: not computed OR required
+        // req_only: not computed -> yes
+        // comp_only: computed and not required -> no
+        // comp_and_req: computed but required -> yes
+        // optional: not computed -> yes
+        assert_eq!(input_names, vec!["req_only", "comp_and_req", "optional"]);
+
+        let outputs = r.output_attributes();
+        let output_names: Vec<&str> = outputs.iter().map(|a| a.canonical_name.as_str()).collect();
+        // Output: computed OR required
+        // req_only: required -> yes
+        // comp_only: computed -> yes
+        // comp_and_req: both -> yes
+        // optional: neither -> no
+        assert_eq!(output_names, vec!["req_only", "comp_only", "comp_and_req"]);
+    }
+
+    #[test]
+    fn data_source_input_and_output_full() {
+        use crate::testing::TestAttributeBuilder;
+        let ds = IacDataSource {
+            name: "full_ds".to_string(),
+            description: String::new(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: None,
+            attributes: vec![
+                TestAttributeBuilder::new("input_key", IacType::String)
+                    .required()
+                    .build(),
+                TestAttributeBuilder::new("output_val", IacType::String)
+                    .computed()
+                    .build(),
+                TestAttributeBuilder::new("both", IacType::String)
+                    .required()
+                    .computed()
+                    .build(),
+                TestAttributeBuilder::new("neither", IacType::String).build(),
+            ],
+        };
+
+        let inputs = ds.input_attributes();
+        let input_names: Vec<&str> = inputs.iter().map(|a| a.canonical_name.as_str()).collect();
+        // Input: not computed OR required
+        assert_eq!(input_names, vec!["input_key", "both", "neither"]);
+
+        let outputs = ds.output_attributes();
+        let output_names: Vec<&str> = outputs.iter().map(|a| a.canonical_name.as_str()).collect();
+        // Output: computed OR required
+        assert_eq!(output_names, vec!["input_key", "output_val", "both"]);
+
+        let computed = ds.computed_attribute_names();
+        assert_eq!(computed, vec!["output_val", "both"]);
+    }
+
+    #[test]
+    fn auth_info_has_token_only() {
+        let auth = AuthInfo {
+            token_field: "token".to_string(),
+            env_var: "TOKEN".to_string(),
+            gateway_url_field: String::new(),
+            gateway_env_var: String::new(),
+        };
+        assert!(auth.has_token());
+        assert!(!auth.has_gateway());
+    }
+
+    #[test]
+    fn auth_info_has_gateway_only() {
+        let auth = AuthInfo {
+            token_field: String::new(),
+            env_var: String::new(),
+            gateway_url_field: "gateway".to_string(),
+            gateway_env_var: "GW".to_string(),
+        };
+        assert!(!auth.has_token());
+        assert!(auth.has_gateway());
+    }
+
+    #[test]
+    fn resource_no_attributes() {
+        let r = IacResource {
+            name: "empty".to_string(),
+            description: String::new(),
+            category: "test".to_string(),
+            crud: CrudInfo {
+                create_endpoint: "/create".to_string(),
+                create_schema: "Create".to_string(),
+                update_endpoint: None,
+                update_schema: None,
+                read_endpoint: "/read".to_string(),
+                read_schema: "Read".to_string(),
+                read_response_schema: None,
+                delete_endpoint: "/delete".to_string(),
+                delete_schema: "Delete".to_string(),
+            },
+            attributes: vec![],
+            identity: IdentityInfo {
+                id_field: "id".to_string(),
+                import_field: "id".to_string(),
+                force_replace_fields: vec![],
+            },
+        };
+
+        assert!(r.input_attributes().is_empty());
+        assert!(r.output_attributes().is_empty());
+        assert!(r.required_attribute_names().is_empty());
+        assert!(r.sensitive_attribute_names().is_empty());
+        assert!(r.immutable_attribute_names().is_empty());
+    }
+
+    #[test]
+    fn data_source_no_attributes() {
+        let ds = IacDataSource {
+            name: "empty".to_string(),
+            description: String::new(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: None,
+            attributes: vec![],
+        };
+
+        assert!(ds.input_attributes().is_empty());
+        assert!(ds.output_attributes().is_empty());
+        assert!(ds.required_attribute_names().is_empty());
+        assert!(ds.sensitive_attribute_names().is_empty());
+        assert!(ds.computed_attribute_names().is_empty());
+    }
+
+    #[test]
+    fn iac_type_display_nested() {
+        // Nested types display correctly
+        assert_eq!(
+            IacType::List(Box::new(IacType::List(Box::new(IacType::String)))).to_string(),
+            "list<list<string>>"
+        );
+        assert_eq!(
+            IacType::Map(Box::new(IacType::List(Box::new(IacType::Integer)))).to_string(),
+            "map<string, list<integer>>"
+        );
+    }
+
+    #[test]
+    fn iac_attribute_display_optional() {
+        let attr = IacAttribute {
+            api_name: "tags".to_string(),
+            canonical_name: "tags".to_string(),
+            description: String::new(),
+            iac_type: IacType::List(Box::new(IacType::String)),
+            required: false,
+            computed: false,
+            sensitive: false,
+            immutable: false,
+            default_value: None,
+            enum_values: None,
+            read_path: None,
+            update_only: false,
+        };
+        assert_eq!(attr.to_string(), "tags: list<string> (optional)");
+    }
+
+    #[test]
+    fn iac_provider_serialize_roundtrip() {
+        let provider = IacProvider {
+            name: "test".to_string(),
+            description: "Test provider".to_string(),
+            version: "1.0.0".to_string(),
+            auth: AuthInfo {
+                token_field: "token".to_string(),
+                env_var: "TOKEN".to_string(),
+                gateway_url_field: "gw".to_string(),
+                gateway_env_var: "GW".to_string(),
+            },
+            skip_fields: vec!["token".to_string()],
+            platform_config: {
+                let mut m = HashMap::new();
+                m.insert("terraform".to_string(), toml::Value::String("sdk".to_string()));
+                m
+            },
+        };
+        let json = serde_json::to_string(&provider).expect("serialize");
+        let deserialized: IacProvider = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, "test");
+        assert_eq!(deserialized.auth.token_field, "token");
+        assert_eq!(deserialized.skip_fields, vec!["token"]);
+    }
+
+    #[test]
+    fn iac_data_source_serialize_roundtrip() {
+        use crate::testing::TestAttributeBuilder;
+        let ds = IacDataSource {
+            name: "ds".to_string(),
+            description: "A data source".to_string(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: Some("ReadOutput".to_string()),
+            attributes: vec![
+                TestAttributeBuilder::new("key", IacType::String)
+                    .required()
+                    .build(),
+            ],
+        };
+        let json = serde_json::to_string(&ds).expect("serialize");
+        let deserialized: IacDataSource = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, "ds");
+        assert_eq!(
+            deserialized.read_response_schema,
+            Some("ReadOutput".to_string())
+        );
+        assert_eq!(deserialized.attributes.len(), 1);
+    }
 }

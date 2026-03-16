@@ -445,4 +445,653 @@ api_version = "v1alpha1"
         assert!(spec.platforms.contains_key("pulumi"));
         assert!(spec.platforms.contains_key("crossplane"));
     }
+
+    #[test]
+    fn config_loader_from_toml_invalid_resource() {
+        let result = ResourceSpec::from_toml("not valid toml {{{");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_loader_from_toml_invalid_data_source() {
+        let result = DataSourceSpec::from_toml("this is not valid");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_loader_from_toml_invalid_provider() {
+        let result = ProviderSpec::from_toml("[broken");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_loader_from_toml_missing_required_fields() {
+        // ResourceSpec requires [resource], [crud], [identity] sections
+        let result = ResourceSpec::from_toml(
+            r#"
+[resource]
+name = "test"
+"#,
+        );
+        assert!(result.is_err(), "missing [crud] section should fail");
+    }
+
+    #[test]
+    fn config_loader_load_nonexistent_file() {
+        let result = ResourceSpec::load(std::path::Path::new("/nonexistent/path/resource.toml"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_loader_load_provider_nonexistent_file() {
+        let result = ProviderSpec::load(std::path::Path::new("/nonexistent/path/provider.toml"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_loader_load_data_source_nonexistent_file() {
+        let result =
+            DataSourceSpec::load(std::path::Path::new("/nonexistent/path/data_source.toml"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn resource_spec_validate_all_schemas_present() {
+        let toml_str = r#"
+[resource]
+name = "valid_res"
+description = "Valid resource"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties:
+        id: { type: string }
+    ReadSchema:
+      type: object
+      properties:
+        id: { type: string }
+    DeleteSchema:
+      type: object
+      properties:
+        id: { type: string }
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        assert!(spec.validate(&api).is_ok());
+    }
+
+    #[test]
+    fn resource_spec_validate_missing_create_schema() {
+        let toml_str = r#"
+[resource]
+name = "bad_res"
+description = "Bad resource"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "MissingCreate"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("MissingCreate"));
+    }
+
+    #[test]
+    fn resource_spec_validate_missing_update_schema() {
+        let toml_str = r#"
+[resource]
+name = "bad_update"
+description = "Missing update schema"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+update_endpoint = "/update"
+update_schema = "MissingUpdate"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties: {}
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("MissingUpdate"));
+    }
+
+    #[test]
+    fn resource_spec_validate_missing_endpoint() {
+        let toml_str = r#"
+[resource]
+name = "no_endpoint"
+description = "Missing endpoint"
+category = "test"
+
+[crud]
+create_endpoint = "/nonexistent-create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /existing:
+    post:
+      operationId: existing
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties: {}
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("no_endpoint"));
+        assert!(err.contains("/nonexistent-create"));
+    }
+
+    #[test]
+    fn resource_spec_validate_with_no_update_schema() {
+        // When update_schema is None, validation should pass without checking it
+        let toml_str = r#"
+[resource]
+name = "no_update"
+description = "No update schema"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties: {}
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        assert!(spec.validate(&api).is_ok());
+    }
+
+    #[test]
+    fn resource_spec_validate_with_read_response_schema() {
+        let toml_str = r#"
+[resource]
+name = "with_resp"
+description = "With response schema"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+read_response_schema = "ReadResponse"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties: {}
+    ReadSchema:
+      type: object
+      properties: {}
+    ReadResponse:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        assert!(spec.validate(&api).is_ok());
+    }
+
+    #[test]
+    fn resource_spec_validate_missing_read_response_schema() {
+        let toml_str = r#"
+[resource]
+name = "bad_resp"
+description = "Missing response schema"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+read_response_schema = "MissingResponse"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /create:
+    post:
+      operationId: create
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties: {}
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("MissingResponse"));
+    }
+
+    #[test]
+    fn data_source_spec_validate_all_present() {
+        let toml_str = r#"
+[data_source]
+name = "valid_ds"
+description = "Valid data source"
+
+[read]
+endpoint = "/read-ds"
+schema = "ReadDsSchema"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /read-ds:
+    post:
+      operationId: readDs
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    ReadDsSchema:
+      type: object
+      properties:
+        id: { type: string }
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        assert!(spec.validate(&api).is_ok());
+    }
+
+    #[test]
+    fn data_source_spec_validate_missing_schema() {
+        let toml_str = r#"
+[data_source]
+name = "bad_ds"
+description = "Bad data source"
+
+[read]
+endpoint = "/read-ds"
+schema = "MissingSchema"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /read-ds:
+    post:
+      operationId: readDs
+      responses:
+        "200": { description: ok }
+components:
+  schemas: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn data_source_spec_validate_missing_endpoint() {
+        let toml_str = r#"
+[data_source]
+name = "no_ep_ds"
+description = "No endpoint"
+
+[read]
+endpoint = "/nonexistent"
+schema = "DsSchema"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /other:
+    post:
+      operationId: other
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    DsSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("no_ep_ds"));
+        assert!(err.contains("/nonexistent"));
+    }
+
+    #[test]
+    fn data_source_spec_validate_missing_response_schema() {
+        let toml_str = r#"
+[data_source]
+name = "resp_ds"
+description = "Missing response schema"
+
+[read]
+endpoint = "/read-ds"
+schema = "DsSchema"
+response_schema = "MissingResp"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /read-ds:
+    post:
+      operationId: readDs
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    DsSchema:
+      type: object
+      properties: {}
+"#;
+        let api = openapi_forge::Spec::from_str(api_str).expect("parse");
+        let result = spec.validate(&api);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn resource_spec_with_all_field_overrides() {
+        let toml_str = r#"
+[resource]
+name = "full_overrides"
+description = "All field overrides"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Create"
+read_endpoint = "/read"
+read_schema = "Read"
+delete_endpoint = "/delete"
+delete_schema = "Delete"
+
+[identity]
+id_field = "id"
+
+[fields]
+skip_me = { skip = true }
+computed_field = { computed = true }
+sensitive_field = { sensitive = true }
+typed_field = { type_override = "bool" }
+described_field = { description = "Custom desc" }
+force_new_field = { force_new = true }
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+        assert!(spec.fields.get("skip_me").unwrap().skip);
+        assert!(spec.fields.get("computed_field").unwrap().computed);
+        assert!(spec.fields.get("sensitive_field").unwrap().sensitive);
+        assert_eq!(
+            spec.fields.get("typed_field").unwrap().type_override,
+            Some("bool".to_string())
+        );
+        assert_eq!(
+            spec.fields.get("described_field").unwrap().description,
+            Some("Custom desc".to_string())
+        );
+        assert!(spec.fields.get("force_new_field").unwrap().force_new);
+    }
+
+    #[test]
+    fn field_override_defaults() {
+        let fo = FieldOverride::default();
+        assert!(!fo.computed);
+        assert!(!fo.sensitive);
+        assert!(!fo.skip);
+        assert!(fo.type_override.is_none());
+        assert!(fo.description.is_none());
+        assert!(!fo.force_new);
+    }
+
+    #[test]
+    fn provider_defaults_default() {
+        let pd = ProviderDefaults::default();
+        assert!(pd.skip_fields.is_empty());
+    }
+
+    #[test]
+    fn auth_config_default() {
+        let ac = AuthConfig::default();
+        assert!(ac.token_field.is_empty());
+        assert!(ac.env_var.is_empty());
+        assert!(ac.gateway_url_field.is_empty());
+        assert!(ac.gateway_env_var.is_empty());
+    }
+
+    #[test]
+    fn resource_spec_empty_read_mapping() {
+        let toml_str = r#"
+[resource]
+name = "no_mapping"
+description = "No read mapping"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Create"
+read_endpoint = "/read"
+read_schema = "Read"
+delete_endpoint = "/delete"
+delete_schema = "Delete"
+
+[identity]
+id_field = "id"
+"#;
+        let spec = ResourceSpec::from_toml(toml_str).expect("parse");
+        assert!(spec.read_mapping.is_empty());
+    }
+
+    #[test]
+    fn data_source_spec_empty_fields_and_mapping() {
+        let toml_str = r#"
+[data_source]
+name = "minimal"
+description = "Minimal"
+
+[read]
+endpoint = "/read"
+schema = "Read"
+"#;
+        let spec = DataSourceSpec::from_toml(toml_str).expect("parse");
+        assert!(spec.fields.is_empty());
+        assert!(spec.read_mapping.is_empty());
+    }
+
+    #[test]
+    fn provider_spec_minimal() {
+        // Provider with only name, everything else defaults
+        let toml_str = r#"
+[provider]
+name = "minimal"
+"#;
+        let spec = ProviderSpec::from_toml(toml_str).expect("parse");
+        assert_eq!(spec.provider.name, "minimal");
+        assert!(spec.provider.description.is_empty());
+        assert!(spec.provider.version.is_empty());
+        assert!(spec.provider.sdk_import.is_empty());
+        assert!(spec.auth.token_field.is_empty());
+        assert!(spec.defaults.skip_fields.is_empty());
+        assert!(spec.platforms.is_empty());
+    }
 }

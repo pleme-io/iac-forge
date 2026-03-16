@@ -691,4 +691,660 @@ components:
 
         assert!(result.is_err(), "should fail when read schema is missing");
     }
+
+    #[test]
+    fn resolve_resource_update_schema_different_required_fields() {
+        let toml_str = r#"
+[resource]
+name = "test_update"
+description = "Test update_only"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+update_endpoint = "/update"
+update_schema = "UpdateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        extra_field: { type: string }
+    UpdateSchema:
+      type: object
+      required: [extra_field]
+      properties:
+        name: { type: string }
+        extra_field: { type: string }
+    ReadSchema:
+      type: object
+      properties:
+        name: { type: string }
+    DeleteSchema:
+      type: object
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        // extra_field: required in UpdateSchema but not required in CreateSchema
+        // => update_only = true
+        let extra = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "extra_field")
+            .expect("extra_field");
+        assert!(extra.update_only, "extra_field should be update_only");
+
+        // name: required in CreateSchema and NOT required in UpdateSchema
+        // => update_only = false
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
+        assert!(!name.update_only, "name should NOT be update_only");
+    }
+
+    #[test]
+    fn resolve_resource_computed_and_required_makes_required_false() {
+        let toml_str = r#"
+[resource]
+name = "test_computed_req"
+description = "Test computed+required"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+
+[fields]
+server_id = { computed = true }
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      required: [server_id]
+      properties:
+        server_id: { type: string }
+    ReadSchema:
+      type: object
+      properties:
+        server_id: { type: string }
+    DeleteSchema:
+      type: object
+      properties:
+        server_id: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let field = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "server_id")
+            .expect("server_id");
+        // When computed=true, required is forced to false
+        assert!(!field.required, "computed field should have required=false");
+        assert!(field.computed, "field should still be computed");
+    }
+
+    #[test]
+    fn resolve_resource_all_fields_skipped_by_provider_defaults() {
+        let toml_str = r#"
+[resource]
+name = "all_skipped"
+description = "All fields skipped"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        token: { type: string }
+        uid_token: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults {
+            skip_fields: vec!["token".to_string(), "uid_token".to_string()],
+        };
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        assert!(
+            iac.attributes.is_empty(),
+            "all fields should be skipped by provider defaults"
+        );
+    }
+
+    #[test]
+    fn resolve_resource_per_field_and_provider_skip_overlap() {
+        let toml_str = r#"
+[resource]
+name = "double_skip"
+description = "Both skip mechanisms"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "id"
+
+[fields]
+token = { skip = true }
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        token: { type: string }
+        name: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults {
+            skip_fields: vec!["token".to_string()],
+        };
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        // token is skipped by both mechanisms; only name remains
+        assert_eq!(iac.attributes.len(), 1);
+        assert_eq!(iac.attributes[0].canonical_name, "name");
+    }
+
+    #[test]
+    fn resolve_data_source_all_fields_computed() {
+        let toml_str = r#"
+[data_source]
+name = "all_computed_ds"
+description = "All computed"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties:
+        value: { type: string }
+        count: { type: integer }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        // No fields are required, so all should be computed
+        for attr in &iac.attributes {
+            assert!(
+                attr.computed,
+                "field {} should be computed",
+                attr.canonical_name
+            );
+            assert!(!attr.required, "field {} should not be required", attr.canonical_name);
+            assert!(!attr.update_only, "data source field should never be update_only");
+        }
+    }
+
+    #[test]
+    fn resolve_provider_empty_auth() {
+        let toml_str = r#"
+[provider]
+name = "minimal"
+description = "Minimal provider"
+version = "0.1.0"
+"#;
+        let provider: ProviderSpec = toml::from_str(toml_str).expect("parse");
+        let iac = resolve_provider(&provider);
+
+        assert_eq!(iac.name, "minimal");
+        assert!(iac.auth.token_field.is_empty());
+        assert!(iac.auth.env_var.is_empty());
+        assert!(iac.auth.gateway_url_field.is_empty());
+        assert!(iac.auth.gateway_env_var.is_empty());
+        assert!(!iac.auth.has_token());
+        assert!(!iac.auth.has_gateway());
+        assert!(iac.skip_fields.is_empty());
+        assert!(iac.platform_config.is_empty());
+    }
+
+    #[test]
+    fn resolve_provider_with_platform_config() {
+        let toml_str = r#"
+[provider]
+name = "platformed"
+description = "With platforms"
+version = "1.0.0"
+
+[auth]
+token_field = "token"
+env_var = "TOKEN"
+
+[defaults]
+skip_fields = []
+
+[platforms.terraform]
+sdk_import = "github.com/example/sdk"
+
+[platforms.pulumi]
+module = "index"
+"#;
+        let provider: ProviderSpec = toml::from_str(toml_str).expect("parse");
+        let iac = resolve_provider(&provider);
+
+        assert_eq!(iac.platform_config.len(), 2);
+        assert!(iac.platform_config.contains_key("terraform"));
+        assert!(iac.platform_config.contains_key("pulumi"));
+    }
+
+    #[test]
+    fn resolve_resource_import_field_defaults_to_id_field() {
+        let toml_str = r#"
+[resource]
+name = "no_import_field"
+description = "No import_field set"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "my_id"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        my_id: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        assert_eq!(iac.identity.id_field, "my_id");
+        assert_eq!(iac.identity.import_field, "my_id");
+    }
+
+    #[test]
+    fn resolve_resource_explicit_import_field() {
+        let toml_str = r#"
+[resource]
+name = "with_import_field"
+description = "Explicit import_field"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+import_field = "path"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        assert_eq!(iac.identity.id_field, "name");
+        assert_eq!(iac.identity.import_field, "path");
+    }
+
+    #[test]
+    fn resolve_resource_sensitive_field() {
+        let toml_str = r#"
+[resource]
+name = "with_sensitive"
+description = "Has sensitive field"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+
+[fields]
+password = { sensitive = true }
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string }
+        password: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let pw = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "password")
+            .expect("password");
+        assert!(pw.sensitive);
+    }
+
+    #[test]
+    fn resolve_resource_force_new_via_field_override() {
+        let toml_str = r#"
+[resource]
+name = "force_new_override"
+description = "Force new via field override"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+
+[fields]
+region = { force_new = true }
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string }
+        region: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let region = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "region")
+            .expect("region");
+        assert!(region.immutable, "region should be immutable via force_new override");
+    }
+
+    #[test]
+    fn resolve_resource_description_override() {
+        let toml_str = r#"
+[resource]
+name = "desc_override"
+description = "Test description override"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+
+[fields]
+name = { description = "Custom description" }
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string, description: "Original description" }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
+        assert_eq!(name.description, "Custom description");
+    }
+
+    #[test]
+    fn resolve_data_source_immutable_always_false() {
+        let toml_str = r#"
+[data_source]
+name = "ds_no_immutable"
+description = "Data sources never have immutable fields"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[fields]
+name = { force_new = true }
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        for attr in &iac.attributes {
+            assert!(!attr.immutable, "data source field should never be immutable");
+        }
+    }
+
+    #[test]
+    fn resolve_data_source_required_input_not_computed() {
+        let toml_str = r#"
+[data_source]
+name = "ds_input"
+description = "Data source with required input"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: "Lookup key" }
+        result: { type: string, description: "Computed result" }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        // required field in data source: required=false but computed=false (it's an input)
+        assert!(!name.computed, "required input should not be computed");
+
+        let result = iac.attributes.iter().find(|a| a.canonical_name == "result").expect("result");
+        assert!(result.computed, "optional non-required field should be computed in data source");
+    }
 }
