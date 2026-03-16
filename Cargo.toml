@@ -1,0 +1,32 @@
+[package]
+name = "iac-forge"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89.0"
+description = "Platform-independent infrastructure-as-code generator from OpenAPI specs"
+homepage = "https://github.com/pleme-io/iac-forge"
+repository = "https://github.com/pleme-io/iac-forge"
+documentation = "https://docs.rs/iac-forge"
+readme = "README.md"
+license = "MIT"
+categories = ["development-tools", "code-generators"]
+keywords = ["iac", "codegen", "openapi", "terraform", "pulumi"]
+
+[lints.clippy]
+pedantic = "warn"
+
+[dependencies]
+openapi-forge = { git = "https://github.com/pleme-io/openapi-forge" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true
