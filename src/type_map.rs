@@ -183,4 +183,201 @@ mod tests {
         assert!(!is_valid_type_override("BOOL"));
         assert!(!is_valid_type_override("map"));
     }
+
+    #[test]
+    fn nested_array_of_array_of_string() {
+        let inner = TypeInfo::Array(Box::new(TypeInfo::String));
+        let outer = TypeInfo::Array(Box::new(inner));
+        assert_eq!(
+            openapi_to_iac(&outer, None),
+            IacType::List(Box::new(IacType::List(Box::new(IacType::String))))
+        );
+    }
+
+    #[test]
+    fn map_of_integer() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Integer)), None),
+            IacType::Map(Box::new(IacType::Integer))
+        );
+    }
+
+    #[test]
+    fn map_of_boolean() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Boolean)), None),
+            IacType::Map(Box::new(IacType::Boolean))
+        );
+    }
+
+    #[test]
+    fn object_with_name() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Object("Configuration".to_string()), None),
+            IacType::Object {
+                name: "Configuration".to_string(),
+                fields: vec![]
+            }
+        );
+    }
+
+    #[test]
+    fn type_override_float64() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::String, Some("float64")),
+            IacType::Float
+        );
+    }
+
+    #[test]
+    fn type_override_number() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::String, Some("number")),
+            IacType::Float
+        );
+    }
+
+    #[test]
+    fn type_override_int_alias() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::String, Some("int")),
+            IacType::Integer
+        );
+    }
+
+    #[test]
+    fn type_override_float() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::String, Some("float")),
+            IacType::Float
+        );
+    }
+
+    #[test]
+    fn type_override_string() {
+        // Even when the base type is Integer, "string" override forces String
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Integer, Some("string")),
+            IacType::String
+        );
+    }
+
+    #[test]
+    fn type_override_unknown_produces_object() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::String, Some("CustomThing")),
+            IacType::Object {
+                name: "CustomThing".to_string(),
+                fields: vec![]
+            }
+        );
+    }
+
+    #[test]
+    fn enum_constraint_on_integer() {
+        let base = IacType::Integer;
+        let values = Some(vec!["1".to_string(), "2".to_string()]);
+        let result = apply_enum_constraint(base, &values);
+        assert_eq!(
+            result,
+            IacType::Enum {
+                values: vec!["1".to_string(), "2".to_string()],
+                underlying: Box::new(IacType::Integer)
+            }
+        );
+    }
+
+    #[test]
+    fn enum_constraint_on_boolean() {
+        let base = IacType::Boolean;
+        let values = Some(vec!["true".to_string(), "false".to_string()]);
+        let result = apply_enum_constraint(base, &values);
+        assert_eq!(
+            result,
+            IacType::Enum {
+                values: vec!["true".to_string(), "false".to_string()],
+                underlying: Box::new(IacType::Boolean)
+            }
+        );
+    }
+
+    #[test]
+    fn enum_constraint_on_float() {
+        let base = IacType::Float;
+        let values = Some(vec!["1.0".to_string(), "2.5".to_string()]);
+        let result = apply_enum_constraint(base, &values);
+        assert_eq!(
+            result,
+            IacType::Enum {
+                values: vec!["1.0".to_string(), "2.5".to_string()],
+                underlying: Box::new(IacType::Float)
+            }
+        );
+    }
+
+    #[test]
+    fn enum_constraint_on_list() {
+        let base = IacType::List(Box::new(IacType::String));
+        let values = Some(vec!["x".to_string()]);
+        let result = apply_enum_constraint(base.clone(), &values);
+        assert_eq!(
+            result,
+            IacType::Enum {
+                values: vec!["x".to_string()],
+                underlying: Box::new(base)
+            }
+        );
+    }
+
+    #[test]
+    fn array_of_integer() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::Integer)), None),
+            IacType::List(Box::new(IacType::Integer))
+        );
+    }
+
+    #[test]
+    fn array_of_boolean() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::Boolean)), None),
+            IacType::List(Box::new(IacType::Boolean))
+        );
+    }
+
+    #[test]
+    fn array_of_object() {
+        assert_eq!(
+            openapi_to_iac(
+                &TypeInfo::Array(Box::new(TypeInfo::Object("Item".to_string()))),
+                None
+            ),
+            IacType::List(Box::new(IacType::Object {
+                name: "Item".to_string(),
+                fields: vec![]
+            }))
+        );
+    }
+
+    #[test]
+    fn map_of_number() {
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Number)), None),
+            IacType::Map(Box::new(IacType::Float))
+        );
+    }
+
+    #[test]
+    fn type_override_takes_precedence_over_type_info() {
+        // Even with Boolean type_info, "string" override wins
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Boolean, Some("string")),
+            IacType::String
+        );
+        // Even with Integer type_info, "bool" override wins
+        assert_eq!(
+            openapi_to_iac(&TypeInfo::Integer, Some("bool")),
+            IacType::Boolean
+        );
+    }
 }
