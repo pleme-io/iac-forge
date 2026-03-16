@@ -62,7 +62,7 @@ pub trait NamingConvention {
     fn field_name(&self, api_name: &str) -> String;
 }
 
-/// Backend trait — each IaC platform implements this.
+/// Backend trait -- each IaC platform implements this.
 ///
 /// The trait operates on platform-independent IR types, producing
 /// platform-specific code as `GeneratedArtifact` values.
@@ -163,6 +163,8 @@ pub trait Backend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::{AuthInfo, CrudInfo, IdentityInfo};
+    use std::collections::HashMap;
 
     #[test]
     fn artifact_kind_display() {
@@ -170,5 +172,184 @@ mod tests {
         assert_eq!(ArtifactKind::Provider.to_string(), "provider");
         assert_eq!(ArtifactKind::Test.to_string(), "test");
         assert_eq!(ArtifactKind::Schema.to_string(), "schema");
+    }
+
+    /// Minimal backend for testing default method implementations.
+    struct TestBackend;
+
+    struct TestNaming;
+
+    impl NamingConvention for TestNaming {
+        fn resource_type_name(&self, resource_name: &str, provider_name: &str) -> String {
+            format!("{provider_name}_{resource_name}")
+        }
+        fn file_name(&self, resource_name: &str, _kind: &ArtifactKind) -> String {
+            format!("{resource_name}.go")
+        }
+        fn field_name(&self, api_name: &str) -> String {
+            api_name.to_string()
+        }
+    }
+
+    impl Backend for TestBackend {
+        fn platform(&self) -> &str {
+            "test"
+        }
+        fn generate_resource(
+            &self,
+            resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![GeneratedArtifact {
+                path: format!("resource_{}.go", resource.name),
+                content: String::new(),
+                kind: ArtifactKind::Resource,
+            }])
+        }
+        fn generate_data_source(
+            &self,
+            ds: &IacDataSource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![GeneratedArtifact {
+                path: format!("data_source_{}.go", ds.name),
+                content: String::new(),
+                kind: ArtifactKind::DataSource,
+            }])
+        }
+        fn generate_provider(
+            &self,
+            _provider: &IacProvider,
+            _resources: &[IacResource],
+            _data_sources: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![GeneratedArtifact {
+                path: "provider.go".to_string(),
+                content: String::new(),
+                kind: ArtifactKind::Provider,
+            }])
+        }
+        fn generate_test(
+            &self,
+            resource: &IacResource,
+            _provider: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![GeneratedArtifact {
+                path: format!("resource_{}_test.go", resource.name),
+                content: String::new(),
+                kind: ArtifactKind::Test,
+            }])
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &TestNaming
+        }
+    }
+
+    fn make_test_provider() -> IacProvider {
+        IacProvider {
+            name: "test".to_string(),
+            description: "Test provider".to_string(),
+            version: "1.0.0".to_string(),
+            auth: AuthInfo::default(),
+            skip_fields: vec![],
+            platform_config: HashMap::new(),
+        }
+    }
+
+    fn make_test_resource(name: &str) -> IacResource {
+        IacResource {
+            name: name.to_string(),
+            description: String::new(),
+            category: "test".to_string(),
+            crud: CrudInfo {
+                create_endpoint: "/create".to_string(),
+                create_schema: "Create".to_string(),
+                update_endpoint: None,
+                update_schema: None,
+                read_endpoint: "/read".to_string(),
+                read_schema: "Read".to_string(),
+                read_response_schema: None,
+                delete_endpoint: "/delete".to_string(),
+                delete_schema: "Delete".to_string(),
+            },
+            attributes: vec![],
+            identity: IdentityInfo {
+                id_field: "id".to_string(),
+                import_field: "id".to_string(),
+                force_replace_fields: vec![],
+            },
+        }
+    }
+
+    fn make_test_data_source(name: &str) -> IacDataSource {
+        IacDataSource {
+            name: name.to_string(),
+            description: String::new(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: None,
+            attributes: vec![],
+        }
+    }
+
+    #[test]
+    fn validate_resource_default_returns_empty() {
+        let backend = TestBackend;
+        let provider = make_test_provider();
+        let resource = make_test_resource("foo");
+        let errors = backend.validate_resource(&resource, &provider);
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn generate_all_default_delegates() {
+        let backend = TestBackend;
+        let provider = make_test_provider();
+        let resources = vec![make_test_resource("r1"), make_test_resource("r2")];
+        let data_sources = vec![make_test_data_source("ds1")];
+
+        let artifacts = backend
+            .generate_all(&provider, &resources, &data_sources)
+            .expect("generate_all");
+
+        // 2 resources + 1 data source + 1 provider + 2 tests = 6
+        assert_eq!(artifacts.len(), 6);
+        assert_eq!(
+            artifacts
+                .iter()
+                .filter(|a| a.kind == ArtifactKind::Resource)
+                .count(),
+            2
+        );
+        assert_eq!(
+            artifacts
+                .iter()
+                .filter(|a| a.kind == ArtifactKind::DataSource)
+                .count(),
+            1
+        );
+        assert_eq!(
+            artifacts
+                .iter()
+                .filter(|a| a.kind == ArtifactKind::Provider)
+                .count(),
+            1
+        );
+        assert_eq!(
+            artifacts
+                .iter()
+                .filter(|a| a.kind == ArtifactKind::Test)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn data_source_type_name_default() {
+        let naming = TestNaming;
+        assert_eq!(
+            naming.data_source_type_name("auth_method", "akeyless"),
+            naming.resource_type_name("auth_method", "akeyless")
+        );
     }
 }

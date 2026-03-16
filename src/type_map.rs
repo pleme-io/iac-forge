@@ -161,4 +161,26 @@ mod tests {
         let result = apply_enum_constraint(base.clone(), &Some(vec![]));
         assert_eq!(result, base);
     }
+
+    #[test]
+    fn valid_type_overrides() {
+        assert!(is_valid_type_override("bool"));
+        assert!(is_valid_type_override("boolean"));
+        assert!(is_valid_type_override("int"));
+        assert!(is_valid_type_override("int64"));
+        assert!(is_valid_type_override("integer"));
+        assert!(is_valid_type_override("float"));
+        assert!(is_valid_type_override("float64"));
+        assert!(is_valid_type_override("number"));
+        assert!(is_valid_type_override("string"));
+        assert!(is_valid_type_override("list"));
+    }
+
+    #[test]
+    fn invalid_type_overrides() {
+        assert!(!is_valid_type_override("CustomObject"));
+        assert!(!is_valid_type_override(""));
+        assert!(!is_valid_type_override("BOOL"));
+        assert!(!is_valid_type_override("map"));
+    }
 }
