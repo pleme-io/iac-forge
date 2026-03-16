@@ -1,14 +1,85 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use openapi_forge::Spec;
+use openapi_forge::{Field, Spec};
 
 use crate::error::IacForgeError;
 use crate::ir::{
     AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IdentityInfo,
 };
 use crate::naming::to_snake_case;
-use crate::spec::{DataSourceSpec, ProviderDefaults, ProviderSpec, ResourceSpec};
+use crate::spec::{DataSourceSpec, FieldOverride, ProviderDefaults, ProviderSpec, ResourceSpec};
 use crate::type_map::{apply_enum_constraint, openapi_to_iac};
+
+/// Build a single `IacAttribute` from an OpenAPI field with optional overrides.
+///
+/// Returns `None` if the field should be skipped (via override or global skip list).
+///
+/// Parameters:
+/// - `field`: the OpenAPI field definition
+/// - `override_cfg`: optional per-field override from the TOML spec
+/// - `force_new_fields`: list of field names that force resource replacement
+/// - `reverse_mapping`: maps canonical name -> API response read path
+/// - `is_resource`: `true` for resources, `false` for data sources
+/// - `update_only`: whether this field is update-only (only meaningful for resources)
+#[allow(clippy::fn_params_excessive_bools)]
+fn build_attribute(
+    field: &Field,
+    override_cfg: Option<&FieldOverride>,
+    force_new_fields: &[String],
+    reverse_mapping: &HashMap<String, String>,
+    is_resource: bool,
+    update_only: bool,
+) -> Option<IacAttribute> {
+    if override_cfg.is_some_and(|o| o.skip) {
+        return None;
+    }
+
+    let canonical = to_snake_case(&field.name);
+
+    let computed = override_cfg.is_some_and(|o| o.computed);
+    let sensitive = override_cfg.is_some_and(|o| o.sensitive);
+
+    let immutable = if is_resource {
+        override_cfg.is_some_and(|o| o.force_new)
+            || force_new_fields.contains(&field.name)
+    } else {
+        false
+    };
+
+    let type_override = override_cfg.and_then(|o| o.type_override.as_deref());
+    let iac_type = openapi_to_iac(&field.type_info, type_override);
+    let iac_type = apply_enum_constraint(iac_type, &field.enum_values);
+
+    let (required, computed_final, update_only_final) = if is_resource {
+        let req = if computed { false } else { field.required };
+        (req, computed, update_only)
+    } else {
+        // Data sources: all fields are computed unless they're required inputs
+        (false, computed || !field.required, false)
+    };
+
+    let description = override_cfg
+        .and_then(|o| o.description.clone())
+        .or_else(|| field.description.clone())
+        .unwrap_or_default();
+
+    let read_path = reverse_mapping.get(&canonical).cloned();
+
+    Some(IacAttribute {
+        api_name: field.name.clone(),
+        canonical_name: canonical,
+        description,
+        iac_type,
+        required,
+        computed: computed_final,
+        sensitive,
+        immutable,
+        default_value: field.default.clone(),
+        enum_values: field.enum_values.clone(),
+        read_path,
+        update_only: update_only_final,
+    })
+}
 
 /// Resolve a resource spec + OpenAPI spec into a platform-independent `IacResource`.
 ///
@@ -42,7 +113,7 @@ pub fn resolve_resource(
     let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
 
     // Build reverse read_mapping: tf_name -> json_path
-    let reverse_mapping: std::collections::HashMap<String, String> = resource
+    let reverse_mapping: HashMap<String, String> = resource
         .read_mapping
         .iter()
         .map(|(json_path, tf_name)| (to_snake_case(tf_name), json_path.clone()))
@@ -51,55 +122,25 @@ pub fn resolve_resource(
     let mut attributes = Vec::new();
 
     for field in &create_fields {
-        let canonical = to_snake_case(&field.name);
-
         if skip_fields.contains(field.name.as_str()) {
             continue;
         }
 
         let override_cfg = resource.fields.get(&field.name);
-        if override_cfg.is_some_and(|o| o.skip) {
-            continue;
-        }
 
-        let computed = override_cfg.is_some_and(|o| o.computed);
-        let sensitive = override_cfg.is_some_and(|o| o.sensitive);
-        let immutable = override_cfg.is_some_and(|o| o.force_new)
-            || resource.identity.force_new_fields.contains(&field.name);
-
-        let type_override = override_cfg.and_then(|o| o.type_override.as_deref());
-        let iac_type = openapi_to_iac(&field.type_info, type_override);
-        let iac_type = apply_enum_constraint(iac_type, &field.enum_values);
-
-        let is_create_required = field.required;
         let is_update_required = update_required.contains(&field.name);
-        let required = if computed { false } else { is_create_required };
+        let update_only = is_update_required && !field.required;
 
-        // A field is update_only if it appears in the update schema as required
-        // but is not required in the create schema.
-        let update_only = is_update_required && !is_create_required;
-
-        let description = override_cfg
-            .and_then(|o| o.description.clone())
-            .or_else(|| field.description.clone())
-            .unwrap_or_default();
-
-        let read_path = reverse_mapping.get(&canonical).cloned();
-
-        attributes.push(IacAttribute {
-            api_name: field.name.clone(),
-            canonical_name: canonical,
-            description,
-            iac_type,
-            required,
-            computed,
-            sensitive,
-            immutable,
-            default_value: field.default.clone(),
-            enum_values: field.enum_values.clone(),
-            read_path,
+        if let Some(attr) = build_attribute(
+            field,
+            override_cfg,
+            &resource.identity.force_new_fields,
+            &reverse_mapping,
+            true,
             update_only,
-        });
+        ) {
+            attributes.push(attr);
+        }
     }
 
     Ok(IacResource {
@@ -144,7 +185,7 @@ pub fn resolve_data_source(
 
     let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
 
-    let reverse_mapping: std::collections::HashMap<String, String> = ds
+    let reverse_mapping: HashMap<String, String> = ds
         .read_mapping
         .iter()
         .map(|(json_path, tf_name)| (to_snake_case(tf_name), json_path.clone()))
@@ -153,45 +194,22 @@ pub fn resolve_data_source(
     let mut attributes = Vec::new();
 
     for field in &read_fields {
-        let canonical = to_snake_case(&field.name);
-
         if skip_fields.contains(field.name.as_str()) {
             continue;
         }
 
         let override_cfg = ds.fields.get(&field.name);
-        if override_cfg.is_some_and(|o| o.skip) {
-            continue;
+
+        if let Some(attr) = build_attribute(
+            field,
+            override_cfg,
+            &[],
+            &reverse_mapping,
+            false,
+            false,
+        ) {
+            attributes.push(attr);
         }
-
-        let computed = override_cfg.is_some_and(|o| o.computed);
-        let sensitive = override_cfg.is_some_and(|o| o.sensitive);
-
-        let type_override = override_cfg.and_then(|o| o.type_override.as_deref());
-        let iac_type = openapi_to_iac(&field.type_info, type_override);
-        let iac_type = apply_enum_constraint(iac_type, &field.enum_values);
-
-        let description = override_cfg
-            .and_then(|o| o.description.clone())
-            .or_else(|| field.description.clone())
-            .unwrap_or_default();
-
-        let read_path = reverse_mapping.get(&canonical).cloned();
-
-        attributes.push(IacAttribute {
-            api_name: field.name.clone(),
-            canonical_name: canonical,
-            description,
-            iac_type,
-            required: false,
-            computed: computed || !field.required,
-            sensitive,
-            immutable: false,
-            default_value: field.default.clone(),
-            enum_values: field.enum_values.clone(),
-            read_path,
-            update_only: false,
-        });
     }
 
     Ok(IacDataSource {

@@ -439,4 +439,125 @@ mod tests {
         assert_eq!(deserialized.attributes.len(), 1);
         assert_eq!(deserialized.attributes[0].iac_type, IacType::String);
     }
+
+    /// Helper to build a resource with mixed attribute flags for filter tests.
+    fn resource_with_mixed_attrs() -> IacResource {
+        use crate::testing::TestAttributeBuilder;
+        IacResource {
+            name: "mixed".to_string(),
+            description: String::new(),
+            category: "test".to_string(),
+            crud: CrudInfo {
+                create_endpoint: "/create".to_string(),
+                create_schema: "Create".to_string(),
+                update_endpoint: None,
+                update_schema: None,
+                read_endpoint: "/read".to_string(),
+                read_schema: "Read".to_string(),
+                read_response_schema: None,
+                delete_endpoint: "/delete".to_string(),
+                delete_schema: "Delete".to_string(),
+            },
+            attributes: vec![
+                TestAttributeBuilder::new("name", IacType::String)
+                    .required()
+                    .immutable()
+                    .build(),
+                TestAttributeBuilder::new("secret", IacType::String)
+                    .required()
+                    .sensitive()
+                    .build(),
+                TestAttributeBuilder::new("computed_id", IacType::String)
+                    .computed()
+                    .build(),
+                TestAttributeBuilder::new("tags", IacType::List(Box::new(IacType::String)))
+                    .build(),
+            ],
+            identity: IdentityInfo {
+                id_field: "name".to_string(),
+                import_field: "name".to_string(),
+                force_replace_fields: vec!["name".to_string()],
+            },
+        }
+    }
+
+    #[test]
+    fn input_attributes_excludes_purely_computed() {
+        let r = resource_with_mixed_attrs();
+        let inputs = r.input_attributes();
+        // "name" (required), "secret" (required), "tags" (not computed) = 3
+        // "computed_id" is computed and not required, so excluded
+        assert_eq!(inputs.len(), 3);
+        assert!(inputs.iter().all(|a| a.canonical_name != "computed_id"));
+    }
+
+    #[test]
+    fn output_attributes_includes_computed_and_required() {
+        let r = resource_with_mixed_attrs();
+        let outputs = r.output_attributes();
+        // "name" (required), "secret" (required), "computed_id" (computed) = 3
+        // "tags" is neither computed nor required
+        assert_eq!(outputs.len(), 3);
+        assert!(outputs.iter().all(|a| a.canonical_name != "tags"));
+    }
+
+    #[test]
+    fn required_attribute_names_returns_correct_set() {
+        let r = resource_with_mixed_attrs();
+        let names = r.required_attribute_names();
+        assert_eq!(names, vec!["name", "secret"]);
+    }
+
+    #[test]
+    fn sensitive_attribute_names_returns_correct_set() {
+        let r = resource_with_mixed_attrs();
+        let names = r.sensitive_attribute_names();
+        assert_eq!(names, vec!["secret"]);
+    }
+
+    #[test]
+    fn immutable_attribute_names_returns_correct_set() {
+        let r = resource_with_mixed_attrs();
+        let names = r.immutable_attribute_names();
+        assert_eq!(names, vec!["name"]);
+    }
+
+    #[test]
+    fn data_source_input_and_output_attributes() {
+        let ds = crate::testing::test_data_source("cfg");
+        // "name" is required (not computed) -> input
+        // "value" is computed -> output
+        let inputs = ds.input_attributes();
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(inputs[0].canonical_name, "name");
+
+        let outputs = ds.output_attributes();
+        assert_eq!(outputs.len(), 2);
+
+        let computed = ds.computed_attribute_names();
+        assert_eq!(computed, vec!["value"]);
+    }
+
+    #[test]
+    fn data_source_required_and_sensitive() {
+        use crate::testing::TestAttributeBuilder;
+        let ds = IacDataSource {
+            name: "test".to_string(),
+            description: String::new(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: None,
+            attributes: vec![
+                TestAttributeBuilder::new("id", IacType::String)
+                    .required()
+                    .build(),
+                TestAttributeBuilder::new("password", IacType::String)
+                    .sensitive()
+                    .computed()
+                    .build(),
+            ],
+        };
+        assert_eq!(ds.required_attribute_names(), vec!["id"]);
+        assert_eq!(ds.sensitive_attribute_names(), vec!["password"]);
+    }
 }
