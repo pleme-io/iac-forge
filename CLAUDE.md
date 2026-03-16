@@ -39,6 +39,69 @@ let resource = test_resource("secret");
 let attr = TestAttributeBuilder::new("key", IacType::String).required().sensitive().build();
 ```
 
+## ConfigLoader Trait
+
+Eliminates duplicated `load()` methods across spec types. Provides both
+file-based TOML loading and string-based parsing (useful for tests).
+
+```rust
+use iac_forge::ConfigLoader;
+
+// Load from file
+let spec = ResourceSpec::load(Path::new("resources/secret.toml"))?;
+
+// Parse from string (tests)
+let spec = ResourceSpec::from_toml(toml_str)?;
+```
+
+Implemented for: `ResourceSpec`, `DataSourceSpec`, `ProviderSpec`.
+
+## Testing Module
+
+`iac_forge::testing` provides shared fixtures for backend tests. Use these to
+avoid duplicating test data construction across `terraform-forge`, `pulumi-forge`,
+`crossplane-forge`, and `ansible-forge`.
+
+### Fixtures
+
+```rust
+use iac_forge::testing::{test_provider, test_resource, test_data_source,
+                          test_resource_with_type, TestAttributeBuilder};
+
+// Minimal provider with auth config
+let provider = test_provider("acme");
+
+// Resource with 3 attrs: name (required+immutable), value (required+sensitive), tags (list)
+let resource = test_resource("secret");
+
+// Resource with a single attribute of a specific type
+let resource = test_resource_with_type("flag", "enabled", IacType::Boolean);
+
+// Data source with 2 attrs: name (required), value (computed)
+let ds = test_data_source("config");
+```
+
+### TestAttributeBuilder
+
+Fluent builder for constructing test `IacAttribute` values:
+
+```rust
+let attr = TestAttributeBuilder::new("secret-key", IacType::String)
+    .required()
+    .computed()
+    .sensitive()
+    .immutable()
+    .update_only()
+    .read_path("secret_key_resp")
+    .description("A secret key")
+    .default_value(serde_json::json!("default"))
+    .enum_values(vec!["a".into(), "b".into()])
+    .build();
+```
+
+Hyphenated names are auto-converted to snake_case for `canonical_name`
+(e.g., `"my-field"` -> api_name `"my-field"`, canonical_name `"my_field"`).
+
 ## Helpers
 
 ```rust
