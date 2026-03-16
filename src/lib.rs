@@ -19,4 +19,4 @@ pub use spec::{
     AuthConfig, CrudMapping, DataSourceMeta, DataSourceSpec, FieldOverride, IdentityConfig,
     ProviderDefaults, ProviderMeta, ProviderSpec, ReadMapping, ResourceMeta, ResourceSpec,
 };
-pub use type_map::{apply_enum_constraint, openapi_to_iac};
+pub use type_map::{apply_enum_constraint, is_valid_type_override, openapi_to_iac};

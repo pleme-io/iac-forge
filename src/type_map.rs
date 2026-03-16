@@ -2,6 +2,20 @@ use openapi_forge::TypeInfo;
 
 use crate::ir::IacType;
 
+/// Known type override strings for TOML field specs.
+const KNOWN_TYPE_OVERRIDES: &[&str] = &[
+    "bool", "boolean", "int", "int64", "integer", "float", "float64", "number", "string", "list",
+];
+
+/// Check whether a type override string is a recognized built-in type.
+///
+/// Unknown overrides are treated as Object type names, which is valid but
+/// might indicate a typo. Call this during validation to warn users.
+#[must_use]
+pub fn is_valid_type_override(s: &str) -> bool {
+    KNOWN_TYPE_OVERRIDES.contains(&s)
+}
+
 /// Map an OpenAPI type to a platform-independent `IacType`.
 ///
 /// Respects `type_override` from TOML field specs.

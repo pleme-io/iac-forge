@@ -72,8 +72,12 @@ pub fn resolve_resource(
         let iac_type = apply_enum_constraint(iac_type, &field.enum_values);
 
         let is_create_required = field.required;
-        let _is_update_required = update_required.contains(&field.name);
+        let is_update_required = update_required.contains(&field.name);
         let required = if computed { false } else { is_create_required };
+
+        // A field is update_only if it appears in the update schema as required
+        // but is not required in the create schema.
+        let update_only = is_update_required && !is_create_required;
 
         let description = override_cfg
             .and_then(|o| o.description.clone())
@@ -94,6 +98,7 @@ pub fn resolve_resource(
             default_value: field.default.clone(),
             enum_values: field.enum_values.clone(),
             read_path,
+            update_only,
         });
     }
 
@@ -185,6 +190,7 @@ pub fn resolve_data_source(
             default_value: field.default.clone(),
             enum_values: field.enum_values.clone(),
             read_path,
+            update_only: false,
         });
     }
 
@@ -417,6 +423,18 @@ components:
     }
 
     #[test]
+    fn resolve_resource_update_only() {
+        let (resource, api) = make_test_spec();
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        // Without an update schema, all fields should have update_only = false
+        for attr in &iac.attributes {
+            assert!(!attr.update_only, "field {} should not be update_only", attr.canonical_name);
+        }
+    }
+
+    #[test]
     fn resolve_provider_basic() {
         let toml_str = r#"
 [provider]
@@ -502,5 +520,157 @@ components:
             access.read_path,
             Some("auth_method_access_id".to_string())
         );
+    }
+
+    #[test]
+    fn resolve_data_source_update_only_always_false() {
+        let toml_str = r#"
+[data_source]
+name = "test_ds"
+description = "Test"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths:
+  /read:
+    post:
+      operationId: read
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        for attr in &iac.attributes {
+            assert!(!attr.update_only);
+        }
+    }
+
+    #[test]
+    fn resolve_resource_missing_schema() {
+        let toml_str = r#"
+[resource]
+name = "test"
+description = "Test"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "NonExistentSchema"
+read_endpoint = "/read"
+read_schema = "Read"
+delete_endpoint = "/delete"
+delete_schema = "Delete"
+
+[identity]
+id_field = "id"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Read:
+      type: object
+      properties:
+        id: { type: string }
+    Delete:
+      type: object
+      properties:
+        id: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let result = resolve_resource(&resource, &api, &defaults);
+
+        assert!(result.is_err(), "should fail when create_schema is missing");
+    }
+
+    #[test]
+    fn resolve_resource_empty_fields() {
+        let toml_str = r#"
+[resource]
+name = "empty_resource"
+description = "Has no fields"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "EmptySchema"
+read_endpoint = "/read"
+read_schema = "Read"
+delete_endpoint = "/delete"
+delete_schema = "Delete"
+
+[identity]
+id_field = "id"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    EmptySchema:
+      type: object
+      properties: {}
+    Read:
+      type: object
+      properties: {}
+    Delete:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        assert!(iac.attributes.is_empty(), "empty schema should produce zero attributes");
+    }
+
+    #[test]
+    fn resolve_data_source_missing_schema() {
+        let toml_str = r#"
+[data_source]
+name = "test_ds"
+description = "Test"
+
+[read]
+endpoint = "/read"
+schema = "NonExistentSchema"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let result = resolve_data_source(&ds, &api, &defaults);
+
+        assert!(result.is_err(), "should fail when read schema is missing");
     }
 }
