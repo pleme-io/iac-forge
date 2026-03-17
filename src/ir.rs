@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -256,7 +256,7 @@ pub struct IacProvider {
     pub version: String,
     pub auth: AuthInfo,
     pub skip_fields: Vec<String>,
-    pub platform_config: HashMap<String, toml::Value>,
+    pub platform_config: BTreeMap<String, toml::Value>,
 }
 
 /// Authentication configuration for a provider.
@@ -776,7 +776,7 @@ mod tests {
             },
             skip_fields: vec!["token".to_string()],
             platform_config: {
-                let mut m = HashMap::new();
+                let mut m = BTreeMap::new();
                 m.insert("terraform".to_string(), toml::Value::String("sdk".to_string()));
                 m
             },

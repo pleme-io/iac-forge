@@ -2,7 +2,7 @@
 //!
 //! Use these helpers in backend tests to avoid duplicating test data construction.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::ir::{
     AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IacType,
@@ -23,7 +23,7 @@ pub fn test_provider(name: &str) -> IacProvider {
             gateway_env_var: format!("{}_API_URL", name.to_uppercase()),
         },
         skip_fields: vec!["token".to_string()],
-        platform_config: HashMap::new(),
+        platform_config: BTreeMap::new(),
     }
 }
 

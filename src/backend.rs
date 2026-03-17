@@ -172,7 +172,7 @@ pub trait Backend {
 mod tests {
     use super::*;
     use crate::ir::{AuthInfo, CrudInfo, IdentityInfo};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     #[test]
     fn artifact_kind_display() {
@@ -260,7 +260,7 @@ mod tests {
             version: "1.0.0".to_string(),
             auth: AuthInfo::default(),
             skip_fields: vec![],
-            platform_config: HashMap::new(),
+            platform_config: BTreeMap::new(),
         }
     }
 

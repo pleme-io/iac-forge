@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use openapi_forge::{Field, Spec};
 
@@ -26,7 +26,7 @@ fn build_attribute(
     field: &Field,
     override_cfg: Option<&FieldOverride>,
     force_new_fields: &[String],
-    reverse_mapping: &HashMap<String, String>,
+    reverse_mapping: &BTreeMap<String, String>,
     is_resource: bool,
     update_only: bool,
 ) -> Option<IacAttribute> {
@@ -113,7 +113,7 @@ pub fn resolve_resource(
     let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
 
     // Build reverse read_mapping: tf_name -> json_path
-    let reverse_mapping: HashMap<String, String> = resource
+    let reverse_mapping: BTreeMap<String, String> = resource
         .read_mapping
         .iter()
         .map(|(json_path, tf_name)| (to_snake_case(tf_name), json_path.clone()))
@@ -185,7 +185,7 @@ pub fn resolve_data_source(
 
     let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
 
-    let reverse_mapping: HashMap<String, String> = ds
+    let reverse_mapping: BTreeMap<String, String> = ds
         .read_mapping
         .iter()
         .map(|(json_path, tf_name)| (to_snake_case(tf_name), json_path.clone()))

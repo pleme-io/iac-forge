@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -43,9 +43,9 @@ pub struct ResourceSpec {
     pub crud: CrudMapping,
     pub identity: IdentityConfig,
     #[serde(default)]
-    pub fields: HashMap<String, FieldOverride>,
+    pub fields: BTreeMap<String, FieldOverride>,
     #[serde(default)]
-    pub read_mapping: HashMap<String, String>,
+    pub read_mapping: BTreeMap<String, String>,
 }
 
 /// Resource metadata.
@@ -111,7 +111,7 @@ pub struct ProviderSpec {
     #[serde(default)]
     pub defaults: ProviderDefaults,
     #[serde(default)]
-    pub platforms: HashMap<String, toml::Value>,
+    pub platforms: BTreeMap<String, toml::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,9 +210,9 @@ pub struct DataSourceSpec {
     pub data_source: DataSourceMeta,
     pub read: ReadMapping,
     #[serde(default)]
-    pub fields: HashMap<String, FieldOverride>,
+    pub fields: BTreeMap<String, FieldOverride>,
     #[serde(default)]
-    pub read_mapping: HashMap<String, String>,
+    pub read_mapping: BTreeMap<String, String>,
 }
 
 /// Data source metadata.
