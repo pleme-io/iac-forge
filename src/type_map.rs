@@ -1,4 +1,4 @@
-use openapi_forge::TypeInfo;
+use takumi::FieldType;
 
 use crate::ir::IacType;
 
@@ -16,11 +16,11 @@ pub fn is_valid_type_override(s: &str) -> bool {
     KNOWN_TYPE_OVERRIDES.contains(&s)
 }
 
-/// Map an OpenAPI type to a platform-independent `IacType`.
+/// Map a `FieldType` (from takumi) to a platform-independent `IacType`.
 ///
 /// Respects `type_override` from TOML field specs.
 #[must_use]
-pub fn openapi_to_iac(type_info: &TypeInfo, type_override: Option<&str>) -> IacType {
+pub fn openapi_to_iac(field_type: &FieldType, type_override: Option<&str>) -> IacType {
     if let Some(override_str) = type_override {
         return match override_str {
             "bool" | "boolean" => IacType::Boolean,
@@ -35,18 +35,22 @@ pub fn openapi_to_iac(type_info: &TypeInfo, type_override: Option<&str>) -> IacT
         };
     }
 
-    match type_info {
-        TypeInfo::String => IacType::String,
-        TypeInfo::Integer => IacType::Integer,
-        TypeInfo::Number => IacType::Float,
-        TypeInfo::Boolean => IacType::Boolean,
-        TypeInfo::Array(inner) => IacType::List(Box::new(openapi_to_iac(inner, None))),
-        TypeInfo::Map(inner) => IacType::Map(Box::new(openapi_to_iac(inner, None))),
-        TypeInfo::Object(name) => IacType::Object {
+    match field_type {
+        FieldType::String => IacType::String,
+        FieldType::Integer => IacType::Integer,
+        FieldType::Number => IacType::Float,
+        FieldType::Boolean => IacType::Boolean,
+        FieldType::Array(inner) => IacType::List(Box::new(openapi_to_iac(inner, None))),
+        FieldType::Map(inner) => IacType::Map(Box::new(openapi_to_iac(inner, None))),
+        FieldType::Object(name) => IacType::Object {
             name: name.clone(),
             fields: vec![],
         },
-        TypeInfo::Any => IacType::Any,
+        FieldType::Enum { values, underlying } => IacType::Enum {
+            values: values.clone(),
+            underlying: Box::new(openapi_to_iac(underlying, None)),
+        },
+        FieldType::Any => IacType::Any,
     }
 }
 
@@ -68,21 +72,21 @@ mod tests {
 
     #[test]
     fn basic_type_mapping() {
-        assert_eq!(openapi_to_iac(&TypeInfo::String, None), IacType::String);
-        assert_eq!(openapi_to_iac(&TypeInfo::Integer, None), IacType::Integer);
-        assert_eq!(openapi_to_iac(&TypeInfo::Number, None), IacType::Float);
-        assert_eq!(openapi_to_iac(&TypeInfo::Boolean, None), IacType::Boolean);
-        assert_eq!(openapi_to_iac(&TypeInfo::Any, None), IacType::Any);
+        assert_eq!(openapi_to_iac(&FieldType::String, None), IacType::String);
+        assert_eq!(openapi_to_iac(&FieldType::Integer, None), IacType::Integer);
+        assert_eq!(openapi_to_iac(&FieldType::Number, None), IacType::Float);
+        assert_eq!(openapi_to_iac(&FieldType::Boolean, None), IacType::Boolean);
+        assert_eq!(openapi_to_iac(&FieldType::Any, None), IacType::Any);
     }
 
     #[test]
     fn array_type_mapping() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::String)), None),
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::String)), None),
             IacType::List(Box::new(IacType::String))
         );
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::Integer)), None),
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::Integer)), None),
             IacType::List(Box::new(IacType::Integer))
         );
     }
@@ -90,7 +94,7 @@ mod tests {
     #[test]
     fn map_type_mapping() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::String)), None),
+            openapi_to_iac(&FieldType::Map(Box::new(FieldType::String)), None),
             IacType::Map(Box::new(IacType::String))
         );
     }
@@ -98,7 +102,7 @@ mod tests {
     #[test]
     fn object_type_mapping() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Object("User".to_string()), None),
+            openapi_to_iac(&FieldType::Object("User".to_string()), None),
             IacType::Object {
                 name: "User".to_string(),
                 fields: vec![]
@@ -107,13 +111,59 @@ mod tests {
     }
 
     #[test]
+    fn enum_type_mapping() {
+        let ft = FieldType::Enum {
+            values: vec!["a".to_string(), "b".to_string()],
+            underlying: Box::new(FieldType::String),
+        };
+        assert_eq!(
+            openapi_to_iac(&ft, None),
+            IacType::Enum {
+                values: vec!["a".to_string(), "b".to_string()],
+                underlying: Box::new(IacType::String),
+            }
+        );
+    }
+
+    #[test]
+    fn enum_type_mapping_with_integer_underlying() {
+        let ft = FieldType::Enum {
+            values: vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            underlying: Box::new(FieldType::Integer),
+        };
+        assert_eq!(
+            openapi_to_iac(&ft, None),
+            IacType::Enum {
+                values: vec!["1".to_string(), "2".to_string(), "3".to_string()],
+                underlying: Box::new(IacType::Integer),
+            }
+        );
+    }
+
+    #[test]
+    fn enum_type_mapping_nested_in_array() {
+        let enum_type = FieldType::Enum {
+            values: vec!["x".to_string(), "y".to_string()],
+            underlying: Box::new(FieldType::String),
+        };
+        let array_of_enum = FieldType::Array(Box::new(enum_type));
+        assert_eq!(
+            openapi_to_iac(&array_of_enum, None),
+            IacType::List(Box::new(IacType::Enum {
+                values: vec!["x".to_string(), "y".to_string()],
+                underlying: Box::new(IacType::String),
+            }))
+        );
+    }
+
+    #[test]
     fn type_override_bool() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("bool")),
+            openapi_to_iac(&FieldType::String, Some("bool")),
             IacType::Boolean
         );
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("boolean")),
+            openapi_to_iac(&FieldType::String, Some("boolean")),
             IacType::Boolean
         );
     }
@@ -121,11 +171,11 @@ mod tests {
     #[test]
     fn type_override_int() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("int64")),
+            openapi_to_iac(&FieldType::String, Some("int64")),
             IacType::Integer
         );
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("integer")),
+            openapi_to_iac(&FieldType::String, Some("integer")),
             IacType::Integer
         );
     }
@@ -133,7 +183,7 @@ mod tests {
     #[test]
     fn type_override_list() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("list")),
+            openapi_to_iac(&FieldType::String, Some("list")),
             IacType::List(Box::new(IacType::String))
         );
     }
@@ -186,8 +236,8 @@ mod tests {
 
     #[test]
     fn nested_array_of_array_of_string() {
-        let inner = TypeInfo::Array(Box::new(TypeInfo::String));
-        let outer = TypeInfo::Array(Box::new(inner));
+        let inner = FieldType::Array(Box::new(FieldType::String));
+        let outer = FieldType::Array(Box::new(inner));
         assert_eq!(
             openapi_to_iac(&outer, None),
             IacType::List(Box::new(IacType::List(Box::new(IacType::String))))
@@ -197,7 +247,7 @@ mod tests {
     #[test]
     fn map_of_integer() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Integer)), None),
+            openapi_to_iac(&FieldType::Map(Box::new(FieldType::Integer)), None),
             IacType::Map(Box::new(IacType::Integer))
         );
     }
@@ -205,7 +255,7 @@ mod tests {
     #[test]
     fn map_of_boolean() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Boolean)), None),
+            openapi_to_iac(&FieldType::Map(Box::new(FieldType::Boolean)), None),
             IacType::Map(Box::new(IacType::Boolean))
         );
     }
@@ -213,7 +263,7 @@ mod tests {
     #[test]
     fn object_with_name() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Object("Configuration".to_string()), None),
+            openapi_to_iac(&FieldType::Object("Configuration".to_string()), None),
             IacType::Object {
                 name: "Configuration".to_string(),
                 fields: vec![]
@@ -224,7 +274,7 @@ mod tests {
     #[test]
     fn type_override_float64() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("float64")),
+            openapi_to_iac(&FieldType::String, Some("float64")),
             IacType::Float
         );
     }
@@ -232,7 +282,7 @@ mod tests {
     #[test]
     fn type_override_number() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("number")),
+            openapi_to_iac(&FieldType::String, Some("number")),
             IacType::Float
         );
     }
@@ -240,7 +290,7 @@ mod tests {
     #[test]
     fn type_override_int_alias() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("int")),
+            openapi_to_iac(&FieldType::String, Some("int")),
             IacType::Integer
         );
     }
@@ -248,7 +298,7 @@ mod tests {
     #[test]
     fn type_override_float() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("float")),
+            openapi_to_iac(&FieldType::String, Some("float")),
             IacType::Float
         );
     }
@@ -257,7 +307,7 @@ mod tests {
     fn type_override_string() {
         // Even when the base type is Integer, "string" override forces String
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Integer, Some("string")),
+            openapi_to_iac(&FieldType::Integer, Some("string")),
             IacType::String
         );
     }
@@ -265,7 +315,7 @@ mod tests {
     #[test]
     fn type_override_unknown_produces_object() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::String, Some("CustomThing")),
+            openapi_to_iac(&FieldType::String, Some("CustomThing")),
             IacType::Object {
                 name: "CustomThing".to_string(),
                 fields: vec![]
@@ -332,7 +382,7 @@ mod tests {
     #[test]
     fn array_of_integer() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::Integer)), None),
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::Integer)), None),
             IacType::List(Box::new(IacType::Integer))
         );
     }
@@ -340,7 +390,7 @@ mod tests {
     #[test]
     fn array_of_boolean() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Array(Box::new(TypeInfo::Boolean)), None),
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::Boolean)), None),
             IacType::List(Box::new(IacType::Boolean))
         );
     }
@@ -349,7 +399,7 @@ mod tests {
     fn array_of_object() {
         assert_eq!(
             openapi_to_iac(
-                &TypeInfo::Array(Box::new(TypeInfo::Object("Item".to_string()))),
+                &FieldType::Array(Box::new(FieldType::Object("Item".to_string()))),
                 None
             ),
             IacType::List(Box::new(IacType::Object {
@@ -362,22 +412,35 @@ mod tests {
     #[test]
     fn map_of_number() {
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Map(Box::new(TypeInfo::Number)), None),
+            openapi_to_iac(&FieldType::Map(Box::new(FieldType::Number)), None),
             IacType::Map(Box::new(IacType::Float))
         );
     }
 
     #[test]
-    fn type_override_takes_precedence_over_type_info() {
-        // Even with Boolean type_info, "string" override wins
+    fn type_override_takes_precedence_over_field_type() {
+        // Even with Boolean field_type, "string" override wins
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Boolean, Some("string")),
+            openapi_to_iac(&FieldType::Boolean, Some("string")),
             IacType::String
         );
-        // Even with Integer type_info, "bool" override wins
+        // Even with Integer field_type, "bool" override wins
         assert_eq!(
-            openapi_to_iac(&TypeInfo::Integer, Some("bool")),
+            openapi_to_iac(&FieldType::Integer, Some("bool")),
             IacType::Boolean
+        );
+    }
+
+    #[test]
+    fn type_override_takes_precedence_over_enum() {
+        // Even when FieldType is Enum, override wins
+        let ft = FieldType::Enum {
+            values: vec!["a".to_string()],
+            underlying: Box::new(FieldType::String),
+        };
+        assert_eq!(
+            openapi_to_iac(&ft, Some("int")),
+            IacType::Integer
         );
     }
 }
