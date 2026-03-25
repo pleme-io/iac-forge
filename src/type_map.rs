@@ -38,7 +38,7 @@ pub fn openapi_to_iac(field_type: &FieldType, type_override: Option<&str>) -> Ia
     match field_type {
         FieldType::String => IacType::String,
         FieldType::Integer => IacType::Integer,
-        FieldType::Number => IacType::Float,
+        FieldType::Number => IacType::Numeric,
         FieldType::Boolean => IacType::Boolean,
         FieldType::Array(inner) => IacType::List(Box::new(openapi_to_iac(inner, None))),
         FieldType::Map(inner) => IacType::Map(Box::new(openapi_to_iac(inner, None))),
@@ -74,7 +74,7 @@ mod tests {
     fn basic_type_mapping() {
         assert_eq!(openapi_to_iac(&FieldType::String, None), IacType::String);
         assert_eq!(openapi_to_iac(&FieldType::Integer, None), IacType::Integer);
-        assert_eq!(openapi_to_iac(&FieldType::Number, None), IacType::Float);
+        assert_eq!(openapi_to_iac(&FieldType::Number, None), IacType::Numeric);
         assert_eq!(openapi_to_iac(&FieldType::Boolean, None), IacType::Boolean);
         assert_eq!(openapi_to_iac(&FieldType::Any, None), IacType::Any);
     }
@@ -413,7 +413,7 @@ mod tests {
     fn map_of_number() {
         assert_eq!(
             openapi_to_iac(&FieldType::Map(Box::new(FieldType::Number)), None),
-            IacType::Map(Box::new(IacType::Float))
+            IacType::Map(Box::new(IacType::Numeric))
         );
     }
 

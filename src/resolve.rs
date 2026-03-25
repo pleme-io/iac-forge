@@ -73,6 +73,7 @@ fn build_attribute(
         required,
         computed: computed_final,
         sensitive,
+        json_encoded: false,
         immutable,
         default_value: field.default.clone(),
         enum_values: field.enum_values.clone(),

@@ -11,6 +11,12 @@ pub enum IacType {
     String,
     Integer,
     Float,
+    /// Platform-independent numeric type.
+    ///
+    /// Terraform's `number` type accepts both integers and floats. This variant
+    /// preserves that ambiguity rather than forcing a choice between `Integer`
+    /// and `Float` at schema-import time.
+    Numeric,
     Boolean,
     List(Box<IacType>),
     Set(Box<IacType>),
@@ -36,6 +42,7 @@ impl std::fmt::Display for IacType {
             Self::String => write!(f, "string"),
             Self::Integer => write!(f, "integer"),
             Self::Float => write!(f, "float"),
+            Self::Numeric => write!(f, "numeric"),
             Self::Boolean => write!(f, "boolean"),
             Self::List(inner) => write!(f, "list<{inner}>"),
             Self::Set(inner) => write!(f, "set<{inner}>"),
@@ -64,6 +71,13 @@ pub struct IacAttribute {
     pub computed: bool,
     /// Whether the field contains sensitive data.
     pub sensitive: bool,
+    /// Whether the field value is a JSON-encoded string.
+    ///
+    /// When `true`, the underlying Terraform type is still `String`, but the
+    /// value carries structured JSON (e.g., IAM policy documents). Code
+    /// generators can use this to accept both `String` and `Hash` inputs.
+    #[serde(default)]
+    pub json_encoded: bool,
     /// Whether changing this field forces resource replacement.
     pub immutable: bool,
     /// Default value, if any.
@@ -298,6 +312,7 @@ mod tests {
         assert_eq!(IacType::String.to_string(), "string");
         assert_eq!(IacType::Integer.to_string(), "integer");
         assert_eq!(IacType::Float.to_string(), "float");
+        assert_eq!(IacType::Numeric.to_string(), "numeric");
         assert_eq!(IacType::Boolean.to_string(), "boolean");
         assert_eq!(
             IacType::List(Box::new(IacType::String)).to_string(),
@@ -364,6 +379,7 @@ mod tests {
             required: true,
             computed: false,
             sensitive: false,
+            json_encoded: false,
             immutable: false,
             default_value: None,
             enum_values: None,
@@ -420,6 +436,7 @@ mod tests {
                 required: true,
                 computed: false,
                 sensitive: false,
+                json_encoded: false,
                 immutable: true,
                 default_value: None,
                 enum_values: None,
@@ -753,6 +770,7 @@ mod tests {
             required: false,
             computed: false,
             sensitive: false,
+            json_encoded: false,
             immutable: false,
             default_value: None,
             enum_values: None,

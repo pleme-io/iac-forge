@@ -139,6 +139,7 @@ pub struct TestAttributeBuilder {
     required: bool,
     computed: bool,
     sensitive: bool,
+    json_encoded: bool,
     immutable: bool,
     default_value: Option<serde_json::Value>,
     enum_values: Option<Vec<String>>,
@@ -158,6 +159,7 @@ impl TestAttributeBuilder {
             required: false,
             computed: false,
             sensitive: false,
+            json_encoded: false,
             immutable: false,
             default_value: None,
             enum_values: None,
@@ -184,6 +186,13 @@ impl TestAttributeBuilder {
     #[must_use]
     pub fn sensitive(mut self) -> Self {
         self.sensitive = true;
+        self
+    }
+
+    /// Mark the attribute as carrying JSON-encoded string content.
+    #[must_use]
+    pub fn json_encoded(mut self) -> Self {
+        self.json_encoded = true;
         self
     }
 
@@ -240,6 +249,7 @@ impl TestAttributeBuilder {
             required: self.required,
             computed: self.computed,
             sensitive: self.sensitive,
+            json_encoded: self.json_encoded,
             immutable: self.immutable,
             default_value: self.default_value,
             enum_values: self.enum_values,
@@ -327,6 +337,7 @@ mod tests {
         assert!(!attr.required);
         assert!(!attr.computed);
         assert!(!attr.sensitive);
+        assert!(!attr.json_encoded);
         assert!(!attr.immutable);
         assert!(!attr.update_only);
         assert!(attr.description.is_empty());
@@ -341,6 +352,7 @@ mod tests {
             .required()
             .computed()
             .sensitive()
+            .json_encoded()
             .immutable()
             .update_only()
             .read_path("secret_key_resp")
@@ -353,6 +365,7 @@ mod tests {
         assert!(attr.required);
         assert!(attr.computed);
         assert!(attr.sensitive);
+        assert!(attr.json_encoded);
         assert!(attr.immutable);
         assert!(attr.update_only);
         assert_eq!(attr.read_path, Some("secret_key_resp".to_string()));

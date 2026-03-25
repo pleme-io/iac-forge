@@ -614,6 +614,7 @@ mod tests {
             required: true,
             computed: false,
             sensitive: false,
+            json_encoded: false,
             immutable: false,
             default_value: None,
             enum_values: None,
