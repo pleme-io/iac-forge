@@ -612,6 +612,7 @@ mod tests {
             description: String::new(),
             iac_type: crate::ir::IacType::String,
             required: true,
+            optional: false,
             computed: false,
             sensitive: false,
             json_encoded: false,

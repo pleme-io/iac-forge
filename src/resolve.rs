@@ -71,6 +71,7 @@ fn build_attribute(
         description,
         iac_type,
         required,
+        optional: !required,
         computed: computed_final,
         sensitive,
         json_encoded: false,

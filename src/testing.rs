@@ -137,6 +137,7 @@ pub struct TestAttributeBuilder {
     description: String,
     iac_type: IacType,
     required: bool,
+    optional: bool,
     computed: bool,
     sensitive: bool,
     json_encoded: bool,
@@ -157,6 +158,7 @@ impl TestAttributeBuilder {
             description: String::new(),
             iac_type,
             required: false,
+            optional: false,
             computed: false,
             sensitive: false,
             json_encoded: false,
@@ -172,6 +174,13 @@ impl TestAttributeBuilder {
     #[must_use]
     pub fn required(mut self) -> Self {
         self.required = true;
+        self
+    }
+
+    /// Mark the attribute as optional.
+    #[must_use]
+    pub fn optional(mut self) -> Self {
+        self.optional = true;
         self
     }
 
@@ -247,6 +256,7 @@ impl TestAttributeBuilder {
             description: self.description,
             iac_type: self.iac_type,
             required: self.required,
+            optional: self.optional,
             computed: self.computed,
             sensitive: self.sensitive,
             json_encoded: self.json_encoded,
@@ -335,6 +345,7 @@ mod tests {
         assert_eq!(attr.canonical_name, "field");
         assert_eq!(attr.iac_type, IacType::String);
         assert!(!attr.required);
+        assert!(!attr.optional);
         assert!(!attr.computed);
         assert!(!attr.sensitive);
         assert!(!attr.json_encoded);
@@ -350,6 +361,7 @@ mod tests {
     fn test_attribute_builder_all_flags() {
         let attr = TestAttributeBuilder::new("secret-key", IacType::String)
             .required()
+            .optional()
             .computed()
             .sensitive()
             .json_encoded()
@@ -363,6 +375,7 @@ mod tests {
         assert_eq!(attr.api_name, "secret-key");
         assert_eq!(attr.canonical_name, "secret_key");
         assert!(attr.required);
+        assert!(attr.optional);
         assert!(attr.computed);
         assert!(attr.sensitive);
         assert!(attr.json_encoded);

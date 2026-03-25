@@ -67,6 +67,14 @@ pub struct IacAttribute {
     pub iac_type: IacType,
     /// Whether the field is required on create.
     pub required: bool,
+    /// Whether the field is optional (user can set it, but it is not required).
+    ///
+    /// In Terraform schema terms:
+    /// - `optional: true, computed: false` — user can set, no server default
+    /// - `optional: true, computed: true`  — user can set, server has default
+    /// - `optional: false, computed: true` — purely server-generated
+    #[serde(default)]
+    pub optional: bool,
     /// Whether the field is computed (server-side generated).
     pub computed: bool,
     /// Whether the field contains sensitive data.
@@ -153,11 +161,14 @@ pub struct IacResource {
 
 impl IacResource {
     /// Attributes that are user-provided inputs (not purely computed).
+    ///
+    /// Includes required, optional, and optional+computed attributes.
+    /// Excludes purely computed attributes (computed=true, optional=false, required=false).
     #[must_use]
     pub fn input_attributes(&self) -> Vec<&IacAttribute> {
         self.attributes
             .iter()
-            .filter(|a| !a.computed || a.required)
+            .filter(|a| a.required || a.optional || !a.computed)
             .collect()
     }
 
@@ -214,11 +225,14 @@ pub struct IacDataSource {
 
 impl IacDataSource {
     /// Attributes that are user-provided inputs (not purely computed).
+    ///
+    /// Includes required, optional, and optional+computed attributes.
+    /// Excludes purely computed attributes (computed=true, optional=false, required=false).
     #[must_use]
     pub fn input_attributes(&self) -> Vec<&IacAttribute> {
         self.attributes
             .iter()
-            .filter(|a| !a.computed || a.required)
+            .filter(|a| a.required || a.optional || !a.computed)
             .collect()
     }
 
@@ -377,6 +391,7 @@ mod tests {
             description: String::new(),
             iac_type: IacType::String,
             required: true,
+            optional: false,
             computed: false,
             sensitive: false,
             json_encoded: false,
@@ -390,6 +405,7 @@ mod tests {
 
         let optional = IacAttribute {
             required: false,
+            optional: true,
             ..attr
         };
         assert_eq!(optional.to_string(), "name: string (optional)");
@@ -434,6 +450,7 @@ mod tests {
                 description: "The name".to_string(),
                 iac_type: IacType::String,
                 required: true,
+                optional: false,
                 computed: false,
                 sensitive: false,
                 json_encoded: false,
@@ -768,6 +785,7 @@ mod tests {
             description: String::new(),
             iac_type: IacType::List(Box::new(IacType::String)),
             required: false,
+            optional: true,
             computed: false,
             sensitive: false,
             json_encoded: false,
