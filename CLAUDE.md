@@ -2,18 +2,35 @@
 
 Platform-independent IaC code generation core library. Defines the IR types,
 Backend trait, resolver, and shared test fixtures that all `*-forge` backends consume.
+The IR is the shared language between two input paths and seven output backends.
 
 ## Architecture
 
+Two input paths produce the same IR:
+
 ```
-ResourceSpec (TOML) + openapi_forge::Spec
-     │
-     ▼  resolve_resource() / resolve_data_source()
-IacResource / IacDataSource (platform-neutral IR)
-     │
-     ▼  Backend::generate_resource() / generate_all()
-GeneratedArtifact { path, content, kind }
+Path 1: TOML + OpenAPI (iac-forge-cli)
+  ResourceSpec (TOML) + openapi_forge::Spec
+       │
+       ▼  resolve_resource() / resolve_data_source()
+       IacResource / IacDataSource (platform-neutral IR)
+
+Path 2: Terraform Schema (terraform-schema-importer)
+  terraform providers schema -json
+       │
+       ▼  convert_resource()
+       IacResource (same IR)
+
+Both paths feed into:
+  IacResource / IacDataSource
+       │
+       ▼  Backend::generate_resource() / generate_all()
+  GeneratedArtifact { path, content, kind }
 ```
+
+Path 1 is used for providers with OpenAPI specs (Akeyless, Datadog, Splunk).
+Path 2 is used for all Terraform-native providers (AWS, Azure, GCP, Cloudflare,
+and 21 others). Both produce identical IacResource IR that backends consume.
 
 ## Key Types
 
