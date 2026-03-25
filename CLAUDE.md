@@ -34,8 +34,8 @@ and 21 others). Both produce identical IacResource IR that backends consume.
 
 ## Key Types
 
-- **`IacType`** — `String | Integer | Float | Boolean | List | Set | Map | Object | Enum | Any` (Serialize/Deserialize/Eq/Hash)
-- **`IacAttribute`** — resolved field with `required`, `computed`, `sensitive`, `immutable`, `update_only`, `read_path`
+- **`IacType`** — `String | Integer | Float | Numeric | Boolean | List | Set | Map | Object | Enum | Any` (Serialize/Deserialize/Eq/Hash)
+- **`IacAttribute`** — resolved field with `required`, `optional`, `computed`, `sensitive`, `immutable`, `update_only`, `read_path`, `json_encoded`
 - **`IacResource`** — resolved resource with attributes, CRUD info, identity
 - **`IacDataSource`** — resolved data source with attributes
 - **`IacProvider`** — provider config with auth, skip_fields, platform_config
@@ -128,3 +128,18 @@ resource.required_attribute_names()
 resource.sensitive_attribute_names()
 resource.immutable_attribute_names()
 ```
+
+## IacType::Numeric
+
+`Numeric` represents Terraform's `number` type, which can be integer or float.
+Backends map it to their most appropriate numeric type:
+- pangea-forge: `T::Coercible::Float`
+- terraform-forge: `schema.TypeFloat`
+- pulumi-forge: `pulumi.Number`
+
+## json_encoded Annotation
+
+`IacAttribute.json_encoded = true` marks fields that contain serialized JSON
+(e.g., IAM policy documents). Backends can use this hint to generate
+appropriate helpers (e.g., `jsonencode()` wrappers in Terraform, `to_json`
+coercion in Pangea).
