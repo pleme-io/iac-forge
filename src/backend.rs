@@ -61,6 +61,18 @@ pub struct GeneratedArtifact {
     pub kind: ArtifactKind,
 }
 
+impl GeneratedArtifact {
+    /// Create a new artifact with the given path, content, and kind.
+    #[must_use]
+    pub fn new(path: impl Into<String>, content: impl Into<String>, kind: ArtifactKind) -> Self {
+        Self {
+            path: path.into(),
+            content: content.into(),
+            kind,
+        }
+    }
+}
+
 impl std::fmt::Display for GeneratedArtifact {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}] {}", self.kind, self.path)
@@ -922,6 +934,22 @@ mod tests {
     fn backend_platform_name() {
         let backend = TestBackend;
         assert_eq!(backend.platform(), "test");
+    }
+
+    #[test]
+    fn generated_artifact_new() {
+        let artifact = GeneratedArtifact::new("test.go", "package main", ArtifactKind::Resource);
+        assert_eq!(artifact.path, "test.go");
+        assert_eq!(artifact.content, "package main");
+        assert_eq!(artifact.kind, ArtifactKind::Resource);
+    }
+
+    #[test]
+    fn generated_artifact_new_from_string() {
+        let path = String::from("test.go");
+        let content = String::from("code");
+        let artifact = GeneratedArtifact::new(path, content, ArtifactKind::Test);
+        assert_eq!(artifact.path, "test.go");
     }
 
     #[test]
