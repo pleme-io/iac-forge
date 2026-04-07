@@ -21,6 +21,9 @@ pub enum IacForgeError {
     #[error("schema not found in spec: {0}")]
     SchemaNotFound(String),
 
+    #[error("unknown type override: {value} on field {field}")]
+    UnknownTypeOverride { field: String, value: String },
+
     #[error("validation error: {0}")]
     ValidationError(String),
 
@@ -96,6 +99,28 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("CreateFoo"), "got: {msg}");
         assert!(msg.contains("schema not found"), "got: {msg}");
+    }
+
+    #[test]
+    fn display_unknown_type_override() {
+        let err = IacForgeError::UnknownTypeOverride {
+            field: "status".to_string(),
+            value: "BADTYPE".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("unknown type override"), "got: {msg}");
+        assert!(msg.contains("status"), "got: {msg}");
+        assert!(msg.contains("BADTYPE"), "got: {msg}");
+    }
+
+    #[test]
+    fn error_source_unknown_type_override_is_none() {
+        use std::error::Error;
+        let err = IacForgeError::UnknownTypeOverride {
+            field: "f".to_string(),
+            value: "v".to_string(),
+        };
+        assert!(err.source().is_none());
     }
 
     #[test]
