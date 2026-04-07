@@ -121,6 +121,27 @@ pub struct IacAttribute {
     pub update_only: bool,
 }
 
+impl Default for IacAttribute {
+    fn default() -> Self {
+        Self {
+            api_name: String::new(),
+            canonical_name: String::new(),
+            description: String::new(),
+            iac_type: IacType::String,
+            required: false,
+            optional: false,
+            computed: false,
+            sensitive: false,
+            json_encoded: false,
+            immutable: false,
+            default_value: None,
+            enum_values: None,
+            read_path: None,
+            update_only: false,
+        }
+    }
+}
+
 impl IacAttribute {
     /// Whether this attribute is a user-provided input.
     ///
@@ -1238,6 +1259,25 @@ mod tests {
         let info = AuthInfo::from(&config);
         assert!(!info.has_token());
         assert!(!info.has_gateway());
+    }
+
+    #[test]
+    fn iac_attribute_default() {
+        let attr = IacAttribute::default();
+        assert!(attr.api_name.is_empty());
+        assert!(attr.canonical_name.is_empty());
+        assert!(attr.description.is_empty());
+        assert_eq!(attr.iac_type, IacType::String);
+        assert!(!attr.required);
+        assert!(!attr.optional);
+        assert!(!attr.computed);
+        assert!(!attr.sensitive);
+        assert!(!attr.json_encoded);
+        assert!(!attr.immutable);
+        assert!(attr.default_value.is_none());
+        assert!(attr.enum_values.is_none());
+        assert!(attr.read_path.is_none());
+        assert!(!attr.update_only);
     }
 
     #[test]
