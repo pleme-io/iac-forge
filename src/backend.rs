@@ -63,7 +63,6 @@ pub struct GeneratedArtifact {
 
 impl GeneratedArtifact {
     /// Create a new artifact with the given path, content, and kind.
-    #[must_use]
     pub fn new(path: impl Into<String>, content: impl Into<String>, kind: ArtifactKind) -> Self {
         Self {
             path: path.into(),
