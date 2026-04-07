@@ -50,6 +50,7 @@ impl std::str::FromStr for ArtifactKind {
 }
 
 /// A single generated file from a backend.
+#[must_use]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GeneratedArtifact {
     /// Relative output path for the file.
@@ -73,20 +74,24 @@ impl std::fmt::Display for GeneratedArtifact {
 /// so backends only need to override methods where their convention differs.
 pub trait NamingConvention {
     /// Generate the platform resource type name from a resource name and provider.
+    #[must_use]
     fn resource_type_name(&self, resource_name: &str, provider_name: &str) -> String;
 
     /// Generate the platform data source type name.
     ///
     /// Defaults to the same as `resource_type_name`. Override for platforms
     /// where data sources have different naming (e.g., Pulumi uses `get` prefix).
+    #[must_use]
     fn data_source_type_name(&self, ds_name: &str, provider_name: &str) -> String {
         self.resource_type_name(ds_name, provider_name)
     }
 
     /// Generate the output file name for an artifact.
+    #[must_use]
     fn file_name(&self, resource_name: &str, kind: &ArtifactKind) -> String;
 
     /// Transform an API field name to the platform's convention.
+    #[must_use]
     fn field_name(&self, api_name: &str) -> String;
 }
 
@@ -96,6 +101,7 @@ pub trait NamingConvention {
 /// platform-specific code as `GeneratedArtifact` values.
 pub trait Backend {
     /// Platform identifier (e.g., "terraform", "pulumi", "crossplane").
+    #[must_use]
     fn platform(&self) -> &str;
 
     /// Generate artifacts for a single resource.
