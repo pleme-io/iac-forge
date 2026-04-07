@@ -799,6 +799,199 @@ mod tests {
     }
 
     #[test]
+    fn iac_type_serde_roundtrip_all_variants() {
+        let types = vec![
+            IacType::String,
+            IacType::Integer,
+            IacType::Float,
+            IacType::Numeric,
+            IacType::Boolean,
+            IacType::Any,
+            IacType::List(Box::new(IacType::Integer)),
+            IacType::Set(Box::new(IacType::Boolean)),
+            IacType::Map(Box::new(IacType::Float)),
+            IacType::Object {
+                name: "Nested".to_string(),
+                fields: vec![],
+            },
+            IacType::Enum {
+                values: vec!["x".into(), "y".into()],
+                underlying: Box::new(IacType::String),
+            },
+        ];
+        for t in &types {
+            let json = serde_json::to_string(t).expect("serialize");
+            let roundtripped: IacType = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(*t, roundtripped, "roundtrip failed for {t}");
+        }
+    }
+
+    #[test]
+    fn iac_type_serde_roundtrip_deeply_nested() {
+        let deep = IacType::List(Box::new(IacType::Map(Box::new(IacType::Set(Box::new(
+            IacType::Object {
+                name: "Inner".to_string(),
+                fields: vec![
+                    crate::testing::TestAttributeBuilder::new("f", IacType::String)
+                        .required()
+                        .build(),
+                ],
+            },
+        ))))));
+        let json = serde_json::to_string(&deep).expect("serialize");
+        let roundtripped: IacType = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deep, roundtripped);
+    }
+
+    #[test]
+    fn iac_attribute_serde_with_all_fields_set() {
+        let attr = IacAttribute {
+            api_name: "my-key".to_string(),
+            canonical_name: "my_key".to_string(),
+            description: "A key".to_string(),
+            iac_type: IacType::String,
+            required: true,
+            optional: false,
+            computed: true,
+            sensitive: true,
+            json_encoded: true,
+            immutable: true,
+            default_value: Some(serde_json::json!("default_val")),
+            enum_values: Some(vec!["a".into(), "b".into()]),
+            read_path: Some("response_key".to_string()),
+            update_only: true,
+        };
+        let json = serde_json::to_string(&attr).expect("serialize");
+        let roundtripped: IacAttribute = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(attr, roundtripped);
+    }
+
+    #[test]
+    fn iac_attribute_json_encoded_default_false() {
+        let json_str = r#"{
+            "api_name":"f","canonical_name":"f","description":"","iac_type":"String",
+            "required":false,"optional":false,"computed":false,"sensitive":false,
+            "immutable":false,"default_value":null,"enum_values":null,
+            "read_path":null,"update_only":false
+        }"#;
+        let attr: IacAttribute = serde_json::from_str(json_str).expect("deserialize");
+        assert!(!attr.json_encoded, "json_encoded should default to false");
+    }
+
+    #[test]
+    fn iac_attribute_optional_default_false() {
+        let json_str = r#"{
+            "api_name":"f","canonical_name":"f","description":"","iac_type":"String",
+            "required":false,"computed":false,"sensitive":false,
+            "immutable":false,"default_value":null,"enum_values":null,
+            "read_path":null,"update_only":false
+        }"#;
+        let attr: IacAttribute = serde_json::from_str(json_str).expect("deserialize");
+        assert!(!attr.optional, "optional should default to false");
+    }
+
+    #[test]
+    fn resource_optional_computed_is_input() {
+        use crate::testing::TestAttributeBuilder;
+        let r = IacResource {
+            name: "opt_comp".to_string(),
+            description: String::new(),
+            category: "test".to_string(),
+            crud: CrudInfo {
+                create_endpoint: "/create".to_string(),
+                create_schema: "Create".to_string(),
+                update_endpoint: None,
+                update_schema: None,
+                read_endpoint: "/read".to_string(),
+                read_schema: "Read".to_string(),
+                read_response_schema: None,
+                delete_endpoint: "/delete".to_string(),
+                delete_schema: "Delete".to_string(),
+            },
+            attributes: vec![
+                TestAttributeBuilder::new("opt_comp_field", IacType::String)
+                    .optional()
+                    .computed()
+                    .build(),
+            ],
+            identity: IdentityInfo {
+                id_field: "id".to_string(),
+                import_field: "id".to_string(),
+                force_replace_fields: vec![],
+            },
+        };
+        let inputs = r.input_attributes();
+        assert_eq!(inputs.len(), 1, "optional+computed should be an input");
+        assert_eq!(inputs[0].canonical_name, "opt_comp_field");
+    }
+
+    #[test]
+    fn data_source_optional_computed_is_input() {
+        use crate::testing::TestAttributeBuilder;
+        let ds = IacDataSource {
+            name: "opt_comp_ds".to_string(),
+            description: String::new(),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: None,
+            attributes: vec![
+                TestAttributeBuilder::new("opt_comp_field", IacType::String)
+                    .optional()
+                    .computed()
+                    .build(),
+            ],
+        };
+        let inputs = ds.input_attributes();
+        assert_eq!(inputs.len(), 1, "optional+computed should be an input for data source");
+    }
+
+    #[test]
+    fn iac_type_clone_equality() {
+        let original = IacType::Object {
+            name: "Config".to_string(),
+            fields: vec![
+                crate::testing::TestAttributeBuilder::new("k", IacType::String).build(),
+            ],
+        };
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn crud_info_serde_roundtrip_with_optionals() {
+        let crud = CrudInfo {
+            create_endpoint: "/create".to_string(),
+            create_schema: "Create".to_string(),
+            update_endpoint: Some("/update".to_string()),
+            update_schema: Some("Update".to_string()),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: Some("ReadResp".to_string()),
+            delete_endpoint: "/delete".to_string(),
+            delete_schema: "Delete".to_string(),
+        };
+        let json = serde_json::to_string(&crud).expect("serialize");
+        let rt: CrudInfo = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.update_endpoint, Some("/update".to_string()));
+        assert_eq!(rt.update_schema, Some("Update".to_string()));
+        assert_eq!(rt.read_response_schema, Some("ReadResp".to_string()));
+    }
+
+    #[test]
+    fn identity_info_serde_roundtrip() {
+        let id = IdentityInfo {
+            id_field: "name".to_string(),
+            import_field: "path".to_string(),
+            force_replace_fields: vec!["name".to_string(), "region".to_string()],
+        };
+        let json = serde_json::to_string(&id).expect("serialize");
+        let rt: IdentityInfo = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.id_field, "name");
+        assert_eq!(rt.import_field, "path");
+        assert_eq!(rt.force_replace_fields.len(), 2);
+    }
+
+    #[test]
     fn iac_provider_serialize_roundtrip() {
         let provider = IacProvider {
             name: "test".to_string(),

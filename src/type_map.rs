@@ -443,4 +443,101 @@ mod tests {
             IacType::Integer
         );
     }
+
+    #[test]
+    fn map_of_map() {
+        let inner = FieldType::Map(Box::new(FieldType::String));
+        let outer = FieldType::Map(Box::new(inner));
+        assert_eq!(
+            openapi_to_iac(&outer, None),
+            IacType::Map(Box::new(IacType::Map(Box::new(IacType::String))))
+        );
+    }
+
+    #[test]
+    fn map_of_array() {
+        let inner = FieldType::Array(Box::new(FieldType::Integer));
+        let outer = FieldType::Map(Box::new(inner));
+        assert_eq!(
+            openapi_to_iac(&outer, None),
+            IacType::Map(Box::new(IacType::List(Box::new(IacType::Integer))))
+        );
+    }
+
+    #[test]
+    fn array_of_map() {
+        let inner = FieldType::Map(Box::new(FieldType::Boolean));
+        let outer = FieldType::Array(Box::new(inner));
+        assert_eq!(
+            openapi_to_iac(&outer, None),
+            IacType::List(Box::new(IacType::Map(Box::new(IacType::Boolean))))
+        );
+    }
+
+    #[test]
+    fn array_of_any() {
+        assert_eq!(
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::Any)), None),
+            IacType::List(Box::new(IacType::Any))
+        );
+    }
+
+    #[test]
+    fn map_of_any() {
+        assert_eq!(
+            openapi_to_iac(&FieldType::Map(Box::new(FieldType::Any)), None),
+            IacType::Map(Box::new(IacType::Any))
+        );
+    }
+
+    #[test]
+    fn enum_constraint_preserves_original_type() {
+        let base = IacType::Map(Box::new(IacType::String));
+        let values = Some(vec!["x".to_string()]);
+        let result = apply_enum_constraint(base.clone(), &values);
+        match &result {
+            IacType::Enum { underlying, .. } => {
+                assert_eq!(**underlying, base);
+            }
+            _ => panic!("expected Enum, got {result:?}"),
+        }
+    }
+
+    #[test]
+    fn array_of_number_maps_to_list_of_numeric() {
+        assert_eq!(
+            openapi_to_iac(&FieldType::Array(Box::new(FieldType::Number)), None),
+            IacType::List(Box::new(IacType::Numeric))
+        );
+    }
+
+    #[test]
+    fn map_of_enum() {
+        let enum_type = FieldType::Enum {
+            values: vec!["a".into(), "b".into()],
+            underlying: Box::new(FieldType::String),
+        };
+        let map_of_enum = FieldType::Map(Box::new(enum_type));
+        assert_eq!(
+            openapi_to_iac(&map_of_enum, None),
+            IacType::Map(Box::new(IacType::Enum {
+                values: vec!["a".to_string(), "b".to_string()],
+                underlying: Box::new(IacType::String),
+            }))
+        );
+    }
+
+    #[test]
+    fn map_of_object() {
+        assert_eq!(
+            openapi_to_iac(
+                &FieldType::Map(Box::new(FieldType::Object("Cfg".to_string()))),
+                None
+            ),
+            IacType::Map(Box::new(IacType::Object {
+                name: "Cfg".to_string(),
+                fields: vec![]
+            }))
+        );
+    }
 }

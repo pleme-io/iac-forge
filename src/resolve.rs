@@ -1349,4 +1349,659 @@ components:
         let result = iac.attributes.iter().find(|a| a.canonical_name == "result").expect("result");
         assert!(result.computed, "optional non-required field should be computed in data source");
     }
+
+    #[test]
+    fn resolve_data_source_global_skip_fields() {
+        let toml_str = r#"
+[data_source]
+name = "ds_skip"
+description = "DS with global skip"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        token: { type: string }
+        uid_token: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults {
+            skip_fields: vec!["token".to_string(), "uid_token".to_string()],
+        };
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+        assert_eq!(iac.attributes.len(), 1);
+        assert_eq!(iac.attributes[0].canonical_name, "name");
+    }
+
+    #[test]
+    fn resolve_resource_enum_field_from_openapi() {
+        let toml_str = r#"
+[resource]
+name = "enum_res"
+description = "Resource with enum field"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        mode:
+          type: string
+          enum: [active, passive, disabled]
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let mode = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "mode")
+            .expect("mode field");
+        assert!(
+            matches!(&mode.iac_type, crate::ir::IacType::Enum { values, .. } if values.len() == 3),
+            "mode should be an Enum with 3 values, got {:?}",
+            mode.iac_type
+        );
+        assert_eq!(
+            mode.enum_values,
+            Some(vec!["active".to_string(), "passive".to_string(), "disabled".to_string()])
+        );
+    }
+
+    #[test]
+    fn resolve_resource_field_with_default_value() {
+        let toml_str = r#"
+[resource]
+name = "default_val"
+description = "Resource with default"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        count: { type: integer, default: 5 }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let count = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "count")
+            .expect("count field");
+        assert_eq!(count.default_value, Some(serde_json::json!(5)));
+        assert!(!count.required, "field with default should not be required");
+    }
+
+    #[test]
+    fn resolve_resource_hyphenated_field_name_becomes_snake_case() {
+        let toml_str = r#"
+[resource]
+name = "hyphen_res"
+description = "Hyphenated names"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties:
+        my-field-name: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let field = iac
+            .attributes
+            .iter()
+            .find(|a| a.api_name == "my-field-name")
+            .expect("hyphenated field");
+        assert_eq!(field.canonical_name, "my_field_name");
+        assert_eq!(field.api_name, "my-field-name");
+    }
+
+    #[test]
+    fn resolve_resource_optional_flag_set_correctly() {
+        let (resource, api) = make_test_spec();
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        assert!(name.required);
+        assert!(!name.optional, "required field should have optional=false");
+
+        let tags = iac.attributes.iter().find(|a| a.canonical_name == "tags").expect("tags");
+        assert!(!tags.required);
+        assert!(tags.optional, "non-required field should have optional=true");
+    }
+
+    #[test]
+    fn resolve_resource_json_encoded_is_false_for_openapi_fields() {
+        let (resource, api) = make_test_spec();
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        for attr in &iac.attributes {
+            assert!(
+                !attr.json_encoded,
+                "OpenAPI-resolved fields should have json_encoded=false, but {} was true",
+                attr.canonical_name
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_data_source_with_computed_override() {
+        let toml_str = r#"
+[data_source]
+name = "comp_override"
+description = "DS with computed override"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[fields]
+extra = { computed = true }
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name, extra]
+      properties:
+        name: { type: string }
+        extra: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        let extra = iac.attributes.iter().find(|a| a.canonical_name == "extra").expect("extra");
+        assert!(extra.computed, "explicitly computed field should be computed");
+    }
+
+    #[test]
+    fn resolve_data_source_read_mapping() {
+        let toml_str = r#"
+[data_source]
+name = "mapped_ds"
+description = "DS with read mapping"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[read_mapping]
+"resp_name" = "name"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        assert_eq!(name.read_path, Some("resp_name".to_string()));
+    }
+
+    #[test]
+    fn resolve_resource_array_of_integers() {
+        let toml_str = r#"
+[resource]
+name = "int_array"
+description = "Array of int"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties:
+        name: { type: string }
+        ports:
+          type: array
+          items:
+            type: integer
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let ports = iac.attributes.iter().find(|a| a.canonical_name == "ports").expect("ports");
+        assert_eq!(ports.iac_type, crate::ir::IacType::List(Box::new(crate::ir::IacType::Integer)));
+    }
+
+    #[test]
+    fn resolve_resource_description_from_openapi_when_no_override() {
+        let toml_str = r#"
+[resource]
+name = "desc_api"
+description = "Test"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string, description: "API description for name" }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        assert_eq!(name.description, "API description for name");
+    }
+
+    #[test]
+    fn resolve_resource_no_description_defaults_to_empty() {
+        let toml_str = r#"
+[resource]
+name = "no_desc"
+description = "Test"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "Schema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    Schema:
+      type: object
+      properties:
+        name: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        assert!(name.description.is_empty());
+    }
+
+    #[test]
+    fn resolve_resource_update_schema_missing_gracefully_uses_empty_set() {
+        let toml_str = r#"
+[resource]
+name = "missing_update_schema"
+description = "Update schema is listed but not in API"
+category = "test"
+
+[crud]
+create_endpoint = "/create"
+create_schema = "CreateSchema"
+update_endpoint = "/update"
+update_schema = "NonExistentUpdateSchema"
+read_endpoint = "/read"
+read_schema = "ReadSchema"
+delete_endpoint = "/delete"
+delete_schema = "DeleteSchema"
+
+[identity]
+id_field = "name"
+"#;
+        let resource: ResourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    CreateSchema:
+      type: object
+      properties:
+        name: { type: string }
+    ReadSchema:
+      type: object
+      properties: {}
+    DeleteSchema:
+      type: object
+      properties: {}
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        for attr in &iac.attributes {
+            assert!(!attr.update_only, "with missing update schema, nothing should be update_only");
+        }
+    }
+
+    #[test]
+    fn resolve_data_source_response_schema_passthrough() {
+        let toml_str = r#"
+[data_source]
+name = "resp_schema_ds"
+description = "DS with response schema"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+response_schema = "ReadResponse"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        assert_eq!(iac.read_response_schema, Some("ReadResponse".to_string()));
+    }
+
+    #[test]
+    fn resolve_data_source_skip_field_via_override() {
+        let toml_str = r#"
+[data_source]
+name = "skip_ds"
+description = "DS field skip"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[fields]
+internal = { skip = true }
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        internal: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        assert_eq!(iac.attributes.len(), 1);
+        assert_eq!(iac.attributes[0].canonical_name, "name");
+    }
+
+    #[test]
+    fn resolve_data_source_sensitive_override() {
+        let toml_str = r#"
+[data_source]
+name = "sens_ds"
+description = "DS with sensitive"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[fields]
+secret = { sensitive = true }
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties:
+        secret: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        let secret = iac.attributes.iter().find(|a| a.canonical_name == "secret").expect("secret");
+        assert!(secret.sensitive);
+    }
+
+    #[test]
+    fn resolve_data_source_type_override() {
+        let toml_str = r#"
+[data_source]
+name = "type_ds"
+description = "DS with type override"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[fields]
+flag = { type_override = "bool" }
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      properties:
+        flag: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        let flag = iac.attributes.iter().find(|a| a.canonical_name == "flag").expect("flag");
+        assert_eq!(flag.iac_type, crate::ir::IacType::Boolean);
+    }
+
+    #[test]
+    fn resolve_provider_skip_fields_passthrough() {
+        let toml_str = r#"
+[provider]
+name = "skip_test"
+description = "Provider with skip fields"
+version = "1.0.0"
+
+[auth]
+token_field = "token"
+env_var = "TOK"
+
+[defaults]
+skip_fields = ["token", "uid-token", "json"]
+"#;
+        let provider: ProviderSpec = toml::from_str(toml_str).expect("parse");
+        let iac = resolve_provider(&provider);
+        assert_eq!(iac.skip_fields, vec!["token", "uid-token", "json"]);
+    }
 }
