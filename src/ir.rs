@@ -295,6 +295,12 @@ pub struct IacResource {
     pub identity: IdentityInfo,
 }
 
+impl std::fmt::Display for IacResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "resource<{}> ({} attrs)", self.name, self.attributes.len())
+    }
+}
+
 impl HasAttributes for IacResource {
     fn attributes(&self) -> &[IacAttribute] {
         &self.attributes
@@ -322,6 +328,12 @@ pub struct IacDataSource {
     pub read_schema: String,
     pub read_response_schema: Option<String>,
     pub attributes: Vec<IacAttribute>,
+}
+
+impl std::fmt::Display for IacDataSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "data_source<{}> ({} attrs)", self.name, self.attributes.len())
+    }
 }
 
 impl HasAttributes for IacDataSource {
@@ -1272,6 +1284,18 @@ mod tests {
         let info = AuthInfo::from(&config);
         assert!(!info.has_token());
         assert!(!info.has_gateway());
+    }
+
+    #[test]
+    fn iac_resource_display() {
+        let r = crate::testing::test_resource("secret");
+        assert_eq!(r.to_string(), "resource<secret> (3 attrs)");
+    }
+
+    #[test]
+    fn iac_data_source_display() {
+        let ds = crate::testing::test_data_source("config");
+        assert_eq!(ds.to_string(), "data_source<config> (2 attrs)");
     }
 
     #[test]
