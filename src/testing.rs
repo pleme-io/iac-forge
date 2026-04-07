@@ -131,6 +131,7 @@ pub fn test_data_source(name: &str) -> IacDataSource {
 }
 
 /// Builder for constructing test `IacAttribute` values with sensible defaults.
+#[allow(clippy::struct_excessive_bools)]
 pub struct TestAttributeBuilder {
     api_name: String,
     canonical_name: String,

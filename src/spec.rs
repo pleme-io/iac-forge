@@ -87,6 +87,7 @@ pub struct IdentityConfig {
 
 /// Per-field overrides in the resource spec.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct FieldOverride {
     #[serde(default)]
     pub computed: bool,
@@ -155,7 +156,7 @@ impl ResourceSpec {
         <Self as ConfigLoader>::load(path)
     }
 
-    /// Validate the resource spec against an OpenAPI spec.
+    /// Validate the resource spec against an `OpenAPI` spec.
     ///
     /// # Errors
     ///
@@ -244,7 +245,7 @@ impl DataSourceSpec {
         <Self as ConfigLoader>::load(path)
     }
 
-    /// Validate the data source spec against an OpenAPI spec.
+    /// Validate the data source spec against an `OpenAPI` spec.
     ///
     /// # Errors
     ///

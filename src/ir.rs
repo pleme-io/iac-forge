@@ -56,10 +56,11 @@ impl std::fmt::Display for IacType {
 
 /// A resolved attribute in the platform-independent IR.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct IacAttribute {
     /// Original API field name (e.g., "bound-aws-account-id").
     pub api_name: String,
-    /// Normalized name with underscores (e.g., "bound_aws_account_id").
+    /// Normalized name with underscores (e.g., `bound_aws_account_id`).
     pub canonical_name: String,
     /// Human-readable description.
     pub description: String,
@@ -93,7 +94,7 @@ pub struct IacAttribute {
     /// Enum constraint values, if any.
     pub enum_values: Option<Vec<String>>,
     /// JSON path in API response for reading this field back
-    /// (e.g., "item_name" maps to the API response key).
+    /// (e.g., `item_name` maps to the API response key).
     pub read_path: Option<String>,
     /// Whether this field exists only in the update schema (not in create).
     pub update_only: bool,
@@ -113,27 +114,27 @@ impl std::fmt::Display for IacAttribute {
 
 /// CRUD endpoint information for a resource.
 ///
-/// Each field maps to an API endpoint path and its corresponding OpenAPI schema
+/// Each field maps to an API endpoint path and its corresponding `OpenAPI` schema
 /// name used for request/response serialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrudInfo {
     /// API path for the create operation (e.g., "/create-secret").
     pub create_endpoint: String,
-    /// OpenAPI schema name for the create request body.
+    /// `OpenAPI` schema name for the create request body.
     pub create_schema: String,
     /// API path for the update operation, if separate from create.
     pub update_endpoint: Option<String>,
-    /// OpenAPI schema name for the update request body.
+    /// `OpenAPI` schema name for the update request body.
     pub update_schema: Option<String>,
     /// API path for the read operation.
     pub read_endpoint: String,
-    /// OpenAPI schema name for the read request body.
+    /// `OpenAPI` schema name for the read request body.
     pub read_schema: String,
-    /// OpenAPI schema name for the read response, if different from the request.
+    /// `OpenAPI` schema name for the read response, if different from the request.
     pub read_response_schema: Option<String>,
     /// API path for the delete operation.
     pub delete_endpoint: String,
-    /// OpenAPI schema name for the delete request body.
+    /// `OpenAPI` schema name for the delete request body.
     pub delete_schema: String,
 }
 
@@ -295,11 +296,11 @@ pub struct IacProvider {
 pub struct AuthInfo {
     /// API field name for the authentication token (e.g., "token").
     pub token_field: String,
-    /// Environment variable that supplies the token (e.g., "AKEYLESS_ACCESS_TOKEN").
+    /// Environment variable that supplies the token (e.g., `AKEYLESS_ACCESS_TOKEN`).
     pub env_var: String,
-    /// API field name for the gateway URL (e.g., "api_gateway_address").
+    /// API field name for the gateway URL (e.g., `api_gateway_address`).
     pub gateway_url_field: String,
-    /// Environment variable that supplies the gateway URL (e.g., "AKEYLESS_GATEWAY").
+    /// Environment variable that supplies the gateway URL (e.g., `AKEYLESS_GATEWAY`).
     pub gateway_env_var: String,
 }
 

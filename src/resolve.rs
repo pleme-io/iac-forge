@@ -10,12 +10,12 @@ use crate::naming::to_snake_case;
 use crate::spec::{DataSourceSpec, FieldOverride, ProviderDefaults, ProviderSpec, ResourceSpec};
 use crate::type_map::{apply_enum_constraint, openapi_to_iac};
 
-/// Build a single `IacAttribute` from an OpenAPI field with optional overrides.
+/// Build a single `IacAttribute` from an `OpenAPI` field with optional overrides.
 ///
 /// Returns `None` if the field should be skipped (via override or global skip list).
 ///
 /// Parameters:
-/// - `field`: the OpenAPI field definition
+/// - `field`: the `OpenAPI` field definition
 /// - `override_cfg`: optional per-field override from the TOML spec
 /// - `force_new_fields`: list of field names that force resource replacement
 /// - `reverse_mapping`: maps canonical name -> API response read path
@@ -83,15 +83,15 @@ fn build_attribute(
     })
 }
 
-/// Resolve a resource spec + OpenAPI spec into a platform-independent `IacResource`.
+/// Resolve a resource spec + `OpenAPI` spec into a platform-independent `IacResource`.
 ///
-/// This is the core resolution step: it reads OpenAPI schema fields, applies
-/// TOML overrides (skip, computed, sensitive, type_override, force_new), and
+/// This is the core resolution step: it reads `OpenAPI` schema fields, applies
+/// TOML overrides (skip, computed, sensitive, `type_override`, `force_new`), and
 /// produces a fully resolved IR ready for any backend.
 ///
 /// # Errors
 ///
-/// Returns an error if referenced schemas are missing from the OpenAPI spec.
+/// Returns an error if referenced schemas are missing from the `OpenAPI` spec.
 pub fn resolve_resource(
     resource: &ResourceSpec,
     api: &Spec,
@@ -173,11 +173,11 @@ pub fn resolve_resource(
     })
 }
 
-/// Resolve a data source spec + OpenAPI spec into a platform-independent `IacDataSource`.
+/// Resolve a data source spec + `OpenAPI` spec into a platform-independent `IacDataSource`.
 ///
 /// # Errors
 ///
-/// Returns an error if referenced schemas are missing from the OpenAPI spec.
+/// Returns an error if referenced schemas are missing from the `OpenAPI` spec.
 pub fn resolve_data_source(
     ds: &DataSourceSpec,
     api: &Spec,

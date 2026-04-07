@@ -70,7 +70,7 @@ pub trait NamingConvention {
     fn field_name(&self, api_name: &str) -> String;
 }
 
-/// Backend trait -- each IaC platform implements this.
+/// Backend trait -- each `IaC` platform implements this.
 ///
 /// The trait operates on platform-independent IR types, producing
 /// platform-specific code as `GeneratedArtifact` values.
