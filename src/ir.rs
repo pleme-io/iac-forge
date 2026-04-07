@@ -55,6 +55,22 @@ impl IacType {
             Self::List(_) | Self::Set(_) | Self::Map(_) | Self::Object { .. }
         )
     }
+
+    /// Returns the inner (element) type for container types.
+    ///
+    /// - `List(T)` → `Some(&T)`
+    /// - `Set(T)` → `Some(&T)`
+    /// - `Map(T)` → `Some(&T)` (value type; keys are always strings)
+    /// - `Enum { underlying, .. }` → `Some(&underlying)`
+    /// - All others → `None`
+    #[must_use]
+    pub fn inner_type(&self) -> Option<&IacType> {
+        match self {
+            Self::List(inner) | Self::Set(inner) | Self::Map(inner) => Some(inner),
+            Self::Enum { underlying, .. } => Some(underlying),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for IacType {
@@ -1374,6 +1390,41 @@ mod tests {
         };
         assert!(!enum_type.is_scalar());
         assert!(!enum_type.is_composite());
+    }
+
+    #[test]
+    fn iac_type_inner_type_list() {
+        let t = IacType::List(Box::new(IacType::String));
+        assert_eq!(t.inner_type(), Some(&IacType::String));
+    }
+
+    #[test]
+    fn iac_type_inner_type_set() {
+        let t = IacType::Set(Box::new(IacType::Integer));
+        assert_eq!(t.inner_type(), Some(&IacType::Integer));
+    }
+
+    #[test]
+    fn iac_type_inner_type_map() {
+        let t = IacType::Map(Box::new(IacType::Boolean));
+        assert_eq!(t.inner_type(), Some(&IacType::Boolean));
+    }
+
+    #[test]
+    fn iac_type_inner_type_enum() {
+        let t = IacType::Enum {
+            values: vec!["a".into()],
+            underlying: Box::new(IacType::String),
+        };
+        assert_eq!(t.inner_type(), Some(&IacType::String));
+    }
+
+    #[test]
+    fn iac_type_inner_type_scalar_none() {
+        assert!(IacType::String.inner_type().is_none());
+        assert!(IacType::Integer.inner_type().is_none());
+        assert!(IacType::Boolean.inner_type().is_none());
+        assert!(IacType::Any.inner_type().is_none());
     }
 
     #[test]
