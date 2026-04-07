@@ -101,6 +101,26 @@ pub struct IacAttribute {
     pub update_only: bool,
 }
 
+impl IacAttribute {
+    /// Whether this attribute is a user-provided input.
+    ///
+    /// An attribute is an input if it is required, optional, or not computed.
+    /// Purely computed attributes (computed=true, optional=false, required=false)
+    /// are excluded.
+    #[must_use]
+    pub fn is_input(&self) -> bool {
+        self.required || self.optional || !self.computed
+    }
+
+    /// Whether this attribute appears in the output/state.
+    ///
+    /// An attribute is an output if it is computed or required.
+    #[must_use]
+    pub fn is_output(&self) -> bool {
+        self.computed || self.required
+    }
+}
+
 impl std::fmt::Display for IacAttribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -168,19 +188,13 @@ impl IacResource {
     /// Excludes purely computed attributes (computed=true, optional=false, required=false).
     #[must_use]
     pub fn input_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes
-            .iter()
-            .filter(|a| a.required || a.optional || !a.computed)
-            .collect()
+        self.attributes.iter().filter(|a| a.is_input()).collect()
     }
 
     /// Attributes that appear in the output/state (computed or required).
     #[must_use]
     pub fn output_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes
-            .iter()
-            .filter(|a| a.computed || a.required)
-            .collect()
+        self.attributes.iter().filter(|a| a.is_output()).collect()
     }
 
     /// Required attribute canonical names.
@@ -232,19 +246,13 @@ impl IacDataSource {
     /// Excludes purely computed attributes (computed=true, optional=false, required=false).
     #[must_use]
     pub fn input_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes
-            .iter()
-            .filter(|a| a.required || a.optional || !a.computed)
-            .collect()
+        self.attributes.iter().filter(|a| a.is_input()).collect()
     }
 
     /// Attributes that appear in the output/state (computed or required).
     #[must_use]
     pub fn output_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes
-            .iter()
-            .filter(|a| a.computed || a.required)
-            .collect()
+        self.attributes.iter().filter(|a| a.is_output()).collect()
     }
 
     /// Required attribute names.
@@ -322,6 +330,62 @@ impl AuthInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::TestAttributeBuilder;
+
+    #[test]
+    fn attribute_is_input_required() {
+        let attr = TestAttributeBuilder::new("name", IacType::String)
+            .required()
+            .build();
+        assert!(attr.is_input());
+    }
+
+    #[test]
+    fn attribute_is_input_optional() {
+        let attr = TestAttributeBuilder::new("tag", IacType::String)
+            .optional()
+            .build();
+        assert!(attr.is_input());
+    }
+
+    #[test]
+    fn attribute_is_input_optional_computed() {
+        let attr = TestAttributeBuilder::new("default_val", IacType::String)
+            .optional()
+            .computed()
+            .build();
+        assert!(attr.is_input());
+    }
+
+    #[test]
+    fn attribute_is_not_input_purely_computed() {
+        let attr = TestAttributeBuilder::new("id", IacType::String)
+            .computed()
+            .build();
+        assert!(!attr.is_input());
+    }
+
+    #[test]
+    fn attribute_is_output_computed() {
+        let attr = TestAttributeBuilder::new("id", IacType::String)
+            .computed()
+            .build();
+        assert!(attr.is_output());
+    }
+
+    #[test]
+    fn attribute_is_output_required() {
+        let attr = TestAttributeBuilder::new("name", IacType::String)
+            .required()
+            .build();
+        assert!(attr.is_output());
+    }
+
+    #[test]
+    fn attribute_is_not_output_plain_optional() {
+        let attr = TestAttributeBuilder::new("tag", IacType::String).build();
+        assert!(!attr.is_output());
+    }
 
     #[test]
     fn iac_type_display() {
@@ -478,7 +542,6 @@ mod tests {
 
     /// Helper to build a resource with mixed attribute flags for filter tests.
     fn resource_with_mixed_attrs() -> IacResource {
-        use crate::testing::TestAttributeBuilder;
         IacResource {
             name: "mixed".to_string(),
             description: String::new(),
@@ -576,7 +639,6 @@ mod tests {
 
     #[test]
     fn data_source_required_and_sensitive() {
-        use crate::testing::TestAttributeBuilder;
         let ds = IacDataSource {
             name: "test".to_string(),
             description: String::new(),
@@ -599,7 +661,6 @@ mod tests {
 
     #[test]
     fn resource_input_attributes_mix() {
-        use crate::testing::TestAttributeBuilder;
         let r = IacResource {
             name: "mix".to_string(),
             description: String::new(),
@@ -656,7 +717,6 @@ mod tests {
 
     #[test]
     fn data_source_input_and_output_full() {
-        use crate::testing::TestAttributeBuilder;
         let ds = IacDataSource {
             name: "full_ds".to_string(),
             description: String::new(),
@@ -940,7 +1000,6 @@ mod tests {
 
     #[test]
     fn resource_optional_computed_is_input() {
-        use crate::testing::TestAttributeBuilder;
         let r = IacResource {
             name: "opt_comp".to_string(),
             description: String::new(),
@@ -975,7 +1034,6 @@ mod tests {
 
     #[test]
     fn data_source_optional_computed_is_input() {
-        use crate::testing::TestAttributeBuilder;
         let ds = IacDataSource {
             name: "opt_comp_ds".to_string(),
             description: String::new(),
@@ -1085,7 +1143,6 @@ mod tests {
 
     #[test]
     fn iac_data_source_serialize_roundtrip() {
-        use crate::testing::TestAttributeBuilder;
         let ds = IacDataSource {
             name: "ds".to_string(),
             description: "A data source".to_string(),
