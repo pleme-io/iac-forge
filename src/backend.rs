@@ -740,4 +740,161 @@ mod tests {
         let result = backend.generate_all(&provider, &resources, &[]);
         assert!(result.is_err(), "should propagate test generation error");
     }
+
+    #[test]
+    fn generate_all_ordering_resources_before_datasources_before_provider() {
+        let backend = TestBackend;
+        let provider = make_test_provider();
+        let resources = vec![make_test_resource("r1")];
+        let data_sources = vec![make_test_data_source("ds1")];
+        let artifacts = backend
+            .generate_all(&provider, &resources, &data_sources)
+            .expect("generate_all");
+
+        let resource_idx = artifacts
+            .iter()
+            .position(|a| a.kind == ArtifactKind::Resource)
+            .expect("resource");
+        let ds_idx = artifacts
+            .iter()
+            .position(|a| a.kind == ArtifactKind::DataSource)
+            .expect("data_source");
+        let provider_idx = artifacts
+            .iter()
+            .position(|a| a.kind == ArtifactKind::Provider)
+            .expect("provider");
+        let test_idx = artifacts
+            .iter()
+            .position(|a| a.kind == ArtifactKind::Test)
+            .expect("test");
+
+        assert!(
+            resource_idx < ds_idx,
+            "resources should come before data sources"
+        );
+        assert!(
+            ds_idx < provider_idx,
+            "data sources should come before provider"
+        );
+        assert!(
+            provider_idx < test_idx,
+            "provider should come before tests"
+        );
+    }
+
+    #[test]
+    fn generate_all_multiple_resources_produces_correct_count() {
+        let backend = TestBackend;
+        let provider = make_test_provider();
+        let resources = vec![
+            make_test_resource("r1"),
+            make_test_resource("r2"),
+            make_test_resource("r3"),
+        ];
+        let data_sources = vec![
+            make_test_data_source("ds1"),
+            make_test_data_source("ds2"),
+        ];
+        let artifacts = backend
+            .generate_all(&provider, &resources, &data_sources)
+            .expect("generate_all");
+        // 3 resources + 2 data sources + 1 provider + 3 tests = 9
+        assert_eq!(artifacts.len(), 9);
+    }
+
+    #[test]
+    fn naming_convention_resource_type_name() {
+        let naming = TestNaming;
+        assert_eq!(naming.resource_type_name("secret", "akeyless"), "akeyless_secret");
+    }
+
+    #[test]
+    fn naming_convention_file_name() {
+        let naming = TestNaming;
+        assert_eq!(naming.file_name("secret", &ArtifactKind::Resource), "secret.go");
+        assert_eq!(naming.file_name("secret", &ArtifactKind::Test), "secret.go");
+    }
+
+    #[test]
+    fn naming_convention_field_name() {
+        let naming = TestNaming;
+        assert_eq!(naming.field_name("my_field"), "my_field");
+    }
+
+    #[test]
+    fn generated_artifact_display_data_source() {
+        let artifact = GeneratedArtifact {
+            path: "data_source_config.go".to_string(),
+            content: String::new(),
+            kind: ArtifactKind::DataSource,
+        };
+        assert_eq!(artifact.to_string(), "[data_source] data_source_config.go");
+    }
+
+    #[test]
+    fn generated_artifact_display_test() {
+        let artifact = GeneratedArtifact {
+            path: "resource_secret_test.go".to_string(),
+            content: "test code".to_string(),
+            kind: ArtifactKind::Test,
+        };
+        assert_eq!(artifact.to_string(), "[test] resource_secret_test.go");
+    }
+
+    #[test]
+    fn generated_artifact_equality() {
+        let a = GeneratedArtifact {
+            path: "a.go".to_string(),
+            content: "content".to_string(),
+            kind: ArtifactKind::Resource,
+        };
+        let b = GeneratedArtifact {
+            path: "a.go".to_string(),
+            content: "content".to_string(),
+            kind: ArtifactKind::Resource,
+        };
+        let c = GeneratedArtifact {
+            path: "a.go".to_string(),
+            content: "different".to_string(),
+            kind: ArtifactKind::Resource,
+        };
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn generated_artifact_display_metadata() {
+        let artifact = GeneratedArtifact {
+            path: "metadata.json".to_string(),
+            content: "{}".to_string(),
+            kind: ArtifactKind::Metadata,
+        };
+        assert_eq!(artifact.to_string(), "[metadata] metadata.json");
+    }
+
+    #[test]
+    fn generated_artifact_display_schema() {
+        let artifact = GeneratedArtifact {
+            path: "schema.json".to_string(),
+            content: "{}".to_string(),
+            kind: ArtifactKind::Schema,
+        };
+        assert_eq!(artifact.to_string(), "[schema] schema.json");
+    }
+
+    #[test]
+    fn generated_artifact_display_module() {
+        let artifact = GeneratedArtifact {
+            path: "index.ts".to_string(),
+            content: String::new(),
+            kind: ArtifactKind::Module,
+        };
+        assert_eq!(artifact.to_string(), "[module] index.ts");
+    }
+
+    #[test]
+    fn backend_platform_name() {
+        let backend = TestBackend;
+        assert_eq!(backend.platform(), "test");
+    }
 }
