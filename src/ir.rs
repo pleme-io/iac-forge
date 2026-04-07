@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Richer than any single platform's type system -- preserves Object structure
 /// and Enum values needed by Pulumi schemas, Crossplane CRDs, etc.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum IacType {
     String,
     Integer,

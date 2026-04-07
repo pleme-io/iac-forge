@@ -5,6 +5,7 @@ use crate::ir::{IacDataSource, IacProvider, IacResource};
 
 /// Kind of generated artifact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum ArtifactKind {
     Resource,
     DataSource,
