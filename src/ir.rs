@@ -170,6 +170,50 @@ pub struct IdentityInfo {
     pub force_replace_fields: Vec<String>,
 }
 
+/// Common attribute queries shared by both resources and data sources.
+///
+/// Provides default implementations for filtering attributes by various
+/// properties. Implementors only need to supply `attributes()`.
+pub trait HasAttributes {
+    /// The full list of attributes on this IR type.
+    fn attributes(&self) -> &[IacAttribute];
+
+    /// Attributes that are user-provided inputs (not purely computed).
+    ///
+    /// Includes required, optional, and optional+computed attributes.
+    /// Excludes purely computed attributes (computed=true, optional=false, required=false).
+    #[must_use]
+    fn input_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes().iter().filter(|a| a.is_input()).collect()
+    }
+
+    /// Attributes that appear in the output/state (computed or required).
+    #[must_use]
+    fn output_attributes(&self) -> Vec<&IacAttribute> {
+        self.attributes().iter().filter(|a| a.is_output()).collect()
+    }
+
+    /// Required attribute canonical names.
+    #[must_use]
+    fn required_attribute_names(&self) -> Vec<&str> {
+        self.attributes()
+            .iter()
+            .filter(|a| a.required)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+
+    /// Sensitive attribute canonical names.
+    #[must_use]
+    fn sensitive_attribute_names(&self) -> Vec<&str> {
+        self.attributes()
+            .iter()
+            .filter(|a| a.sensitive)
+            .map(|a| a.canonical_name.as_str())
+            .collect()
+    }
+}
+
 /// A fully resolved resource in the platform-independent IR.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IacResource {
@@ -181,42 +225,13 @@ pub struct IacResource {
     pub identity: IdentityInfo,
 }
 
+impl HasAttributes for IacResource {
+    fn attributes(&self) -> &[IacAttribute] {
+        &self.attributes
+    }
+}
+
 impl IacResource {
-    /// Attributes that are user-provided inputs (not purely computed).
-    ///
-    /// Includes required, optional, and optional+computed attributes.
-    /// Excludes purely computed attributes (computed=true, optional=false, required=false).
-    #[must_use]
-    pub fn input_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes.iter().filter(|a| a.is_input()).collect()
-    }
-
-    /// Attributes that appear in the output/state (computed or required).
-    #[must_use]
-    pub fn output_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes.iter().filter(|a| a.is_output()).collect()
-    }
-
-    /// Required attribute canonical names.
-    #[must_use]
-    pub fn required_attribute_names(&self) -> Vec<&str> {
-        self.attributes
-            .iter()
-            .filter(|a| a.required)
-            .map(|a| a.canonical_name.as_str())
-            .collect()
-    }
-
-    /// Sensitive attribute canonical names.
-    #[must_use]
-    pub fn sensitive_attribute_names(&self) -> Vec<&str> {
-        self.attributes
-            .iter()
-            .filter(|a| a.sensitive)
-            .map(|a| a.canonical_name.as_str())
-            .collect()
-    }
-
     /// Immutable attribute canonical names.
     #[must_use]
     pub fn immutable_attribute_names(&self) -> Vec<&str> {
@@ -239,42 +254,13 @@ pub struct IacDataSource {
     pub attributes: Vec<IacAttribute>,
 }
 
+impl HasAttributes for IacDataSource {
+    fn attributes(&self) -> &[IacAttribute] {
+        &self.attributes
+    }
+}
+
 impl IacDataSource {
-    /// Attributes that are user-provided inputs (not purely computed).
-    ///
-    /// Includes required, optional, and optional+computed attributes.
-    /// Excludes purely computed attributes (computed=true, optional=false, required=false).
-    #[must_use]
-    pub fn input_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes.iter().filter(|a| a.is_input()).collect()
-    }
-
-    /// Attributes that appear in the output/state (computed or required).
-    #[must_use]
-    pub fn output_attributes(&self) -> Vec<&IacAttribute> {
-        self.attributes.iter().filter(|a| a.is_output()).collect()
-    }
-
-    /// Required attribute names.
-    #[must_use]
-    pub fn required_attribute_names(&self) -> Vec<&str> {
-        self.attributes
-            .iter()
-            .filter(|a| a.required)
-            .map(|a| a.canonical_name.as_str())
-            .collect()
-    }
-
-    /// Sensitive attribute names.
-    #[must_use]
-    pub fn sensitive_attribute_names(&self) -> Vec<&str> {
-        self.attributes
-            .iter()
-            .filter(|a| a.sensitive)
-            .map(|a| a.canonical_name.as_str())
-            .collect()
-    }
-
     /// Computed attribute names.
     #[must_use]
     pub fn computed_attribute_names(&self) -> Vec<&str> {

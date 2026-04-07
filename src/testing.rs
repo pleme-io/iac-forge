@@ -273,6 +273,7 @@ impl TestAttributeBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::HasAttributes;
 
     #[test]
     fn test_provider_creates_valid_provider() {

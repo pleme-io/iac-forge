@@ -25,8 +25,8 @@ pub mod type_map;
 pub use backend::{ArtifactKind, Backend, GeneratedArtifact, NamingConvention};
 pub use error::IacForgeError;
 pub use ir::{
-    AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IacType,
-    IdentityInfo,
+    AuthInfo, CrudInfo, HasAttributes, IacAttribute, IacDataSource, IacProvider, IacResource,
+    IacType, IdentityInfo,
 };
 pub use naming::{
     strip_provider_prefix, to_camel_case, to_kebab_case, to_pascal_case, to_snake_case,
