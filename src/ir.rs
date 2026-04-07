@@ -159,6 +159,22 @@ pub struct CrudInfo {
     pub delete_schema: String,
 }
 
+impl From<&crate::spec::CrudMapping> for CrudInfo {
+    fn from(crud: &crate::spec::CrudMapping) -> Self {
+        Self {
+            create_endpoint: crud.create_endpoint.clone(),
+            create_schema: crud.create_schema.clone(),
+            update_endpoint: crud.update_endpoint.clone(),
+            update_schema: crud.update_schema.clone(),
+            read_endpoint: crud.read_endpoint.clone(),
+            read_schema: crud.read_schema.clone(),
+            read_response_schema: crud.read_response_schema.clone(),
+            delete_endpoint: crud.delete_endpoint.clone(),
+            delete_schema: crud.delete_schema.clone(),
+        }
+    }
+}
+
 /// Identity and import configuration for a resource.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityInfo {
@@ -297,6 +313,17 @@ pub struct AuthInfo {
     pub gateway_url_field: String,
     /// Environment variable that supplies the gateway URL (e.g., `AKEYLESS_GATEWAY`).
     pub gateway_env_var: String,
+}
+
+impl From<&crate::spec::AuthConfig> for AuthInfo {
+    fn from(auth: &crate::spec::AuthConfig) -> Self {
+        Self {
+            token_field: auth.token_field.clone(),
+            env_var: auth.env_var.clone(),
+            gateway_url_field: auth.gateway_url_field.clone(),
+            gateway_env_var: auth.gateway_env_var.clone(),
+        }
+    }
 }
 
 impl AuthInfo {
@@ -1149,5 +1176,47 @@ mod tests {
             Some("ReadOutput".to_string())
         );
         assert_eq!(deserialized.attributes.len(), 1);
+    }
+
+    #[test]
+    fn crud_info_from_crud_mapping() {
+        let mapping = crate::spec::CrudMapping {
+            create_endpoint: "/create".to_string(),
+            create_schema: "Create".to_string(),
+            update_endpoint: Some("/update".to_string()),
+            update_schema: Some("Update".to_string()),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: Some("ReadResp".to_string()),
+            delete_endpoint: "/delete".to_string(),
+            delete_schema: "Delete".to_string(),
+        };
+        let info = CrudInfo::from(&mapping);
+        assert_eq!(info.create_endpoint, "/create");
+        assert_eq!(info.update_endpoint, Some("/update".to_string()));
+        assert_eq!(info.read_response_schema, Some("ReadResp".to_string()));
+    }
+
+    #[test]
+    fn auth_info_from_auth_config() {
+        let config = crate::spec::AuthConfig {
+            token_field: "token".to_string(),
+            env_var: "TOKEN".to_string(),
+            gateway_url_field: "gw".to_string(),
+            gateway_env_var: "GW".to_string(),
+        };
+        let info = AuthInfo::from(&config);
+        assert_eq!(info.token_field, "token");
+        assert_eq!(info.env_var, "TOKEN");
+        assert!(info.has_token());
+        assert!(info.has_gateway());
+    }
+
+    #[test]
+    fn auth_info_from_default_auth_config() {
+        let config = crate::spec::AuthConfig::default();
+        let info = AuthInfo::from(&config);
+        assert!(!info.has_token());
+        assert!(!info.has_gateway());
     }
 }

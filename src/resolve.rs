@@ -149,17 +149,7 @@ pub fn resolve_resource(
         name: resource.resource.name.clone(),
         description: resource.resource.description.clone(),
         category: resource.resource.category.clone(),
-        crud: CrudInfo {
-            create_endpoint: resource.crud.create_endpoint.clone(),
-            create_schema: resource.crud.create_schema.clone(),
-            update_endpoint: resource.crud.update_endpoint.clone(),
-            update_schema: resource.crud.update_schema.clone(),
-            read_endpoint: resource.crud.read_endpoint.clone(),
-            read_schema: resource.crud.read_schema.clone(),
-            read_response_schema: resource.crud.read_response_schema.clone(),
-            delete_endpoint: resource.crud.delete_endpoint.clone(),
-            delete_schema: resource.crud.delete_schema.clone(),
-        },
+        crud: CrudInfo::from(&resource.crud),
         attributes,
         identity: IdentityInfo {
             id_field: resource.identity.id_field.clone(),
@@ -231,12 +221,7 @@ pub fn resolve_provider(provider: &ProviderSpec) -> IacProvider {
         name: provider.provider.name.clone(),
         description: provider.provider.description.clone(),
         version: provider.provider.version.clone(),
-        auth: AuthInfo {
-            token_field: provider.auth.token_field.clone(),
-            env_var: provider.auth.env_var.clone(),
-            gateway_url_field: provider.auth.gateway_url_field.clone(),
-            gateway_env_var: provider.auth.gateway_env_var.clone(),
-        },
+        auth: AuthInfo::from(&provider.auth),
         skip_fields: provider.defaults.skip_fields.clone(),
         platform_config: provider.platforms.clone(),
     }
