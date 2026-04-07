@@ -1,10 +1,24 @@
+//! Platform-independent `IaC` code generation core library.
+//!
+//! Defines the IR types ([`IacType`], [`IacAttribute`], [`IacResource`]),
+//! the [`Backend`] trait, the resolver functions, and shared test fixtures
+//! that all `*-forge` backends consume.
+
+/// Backend trait and generated artifact types.
 pub mod backend;
+/// Error types for the iac-forge pipeline.
 pub mod error;
+/// Platform-independent intermediate representation (IR).
 pub mod ir;
+/// Naming convention helpers (snake_case, camelCase, etc.).
 pub mod naming;
+/// Resolver: spec + `OpenAPI` → IR.
 pub mod resolve;
+/// TOML spec types for resources, data sources, and providers.
 pub mod spec;
+/// Shared test fixtures for backend tests.
 pub mod testing;
+/// Type mapping from `OpenAPI` / takumi types to `IacType`.
 pub mod type_map;
 
 // Re-export key types for convenience.

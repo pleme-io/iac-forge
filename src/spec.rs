@@ -39,11 +39,16 @@ impl ConfigLoader for ProviderSpec {}
 /// Top-level resource specification loaded from TOML.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSpec {
+    /// Resource metadata (name, description, category).
     pub resource: ResourceMeta,
+    /// CRUD operation mappings.
     pub crud: CrudMapping,
+    /// Identity and import configuration.
     pub identity: IdentityConfig,
+    /// Per-field overrides (skip, computed, sensitive, etc.).
     #[serde(default)]
     pub fields: BTreeMap<String, FieldOverride>,
+    /// Mapping from API response JSON paths to field names.
     #[serde(default)]
     pub read_mapping: BTreeMap<String, String>,
 }
@@ -51,9 +56,12 @@ pub struct ResourceSpec {
 /// Resource metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceMeta {
+    /// Resource identifier (e.g., `akeyless_static_secret`).
     pub name: String,
+    /// Human-readable description.
     #[serde(default)]
     pub description: String,
+    /// Category grouping (e.g., "secret", "auth").
     #[serde(default)]
     pub category: String,
 }
@@ -61,26 +69,38 @@ pub struct ResourceMeta {
 /// Maps CRUD operations to API endpoints and schemas.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrudMapping {
+    /// API path for the create operation.
     pub create_endpoint: String,
+    /// `OpenAPI` schema name for the create request body.
     pub create_schema: String,
+    /// API path for the update operation, if separate.
     #[serde(default)]
     pub update_endpoint: Option<String>,
+    /// `OpenAPI` schema name for the update request body.
     #[serde(default)]
     pub update_schema: Option<String>,
+    /// API path for the read operation.
     pub read_endpoint: String,
+    /// `OpenAPI` schema name for the read request body.
     pub read_schema: String,
+    /// `OpenAPI` schema name for the read response, if different.
     #[serde(default)]
     pub read_response_schema: Option<String>,
+    /// API path for the delete operation.
     pub delete_endpoint: String,
+    /// `OpenAPI` schema name for the delete request body.
     pub delete_schema: String,
 }
 
 /// Identity and import configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityConfig {
+    /// Primary identifier field name.
     pub id_field: String,
+    /// Field used for Terraform import (defaults to `id_field`).
     #[serde(default)]
     pub import_field: Option<String>,
+    /// Fields whose changes force resource replacement.
     #[serde(default)]
     pub force_new_fields: Vec<String>,
 }
@@ -89,16 +109,22 @@ pub struct IdentityConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct FieldOverride {
+    /// Whether this field is server-computed.
     #[serde(default)]
     pub computed: bool,
+    /// Whether this field contains sensitive data.
     #[serde(default)]
     pub sensitive: bool,
+    /// Whether to exclude this field from the generated IR.
     #[serde(default)]
     pub skip: bool,
+    /// Override the inferred type (e.g., `"bool"`, `"int64"`).
     #[serde(default)]
     pub type_override: Option<String>,
+    /// Override the field description.
     #[serde(default)]
     pub description: Option<String>,
+    /// Whether changing this field forces resource replacement.
     #[serde(default)]
     pub force_new: bool,
 }
@@ -106,40 +132,56 @@ pub struct FieldOverride {
 /// Provider-level configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderSpec {
+    /// Provider metadata (name, version, SDK import).
     pub provider: ProviderMeta,
+    /// Authentication configuration.
     #[serde(default)]
     pub auth: AuthConfig,
+    /// Default settings (e.g., fields to skip).
     #[serde(default)]
     pub defaults: ProviderDefaults,
+    /// Per-platform configuration blobs (e.g., terraform, pulumi).
     #[serde(default)]
     pub platforms: BTreeMap<String, toml::Value>,
 }
 
+/// Provider metadata (name, version, SDK import path).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderMeta {
+    /// Provider identifier (e.g., "akeyless").
     pub name: String,
+    /// Human-readable description.
     #[serde(default)]
     pub description: String,
+    /// Semantic version of the provider.
     #[serde(default)]
     pub version: String,
+    /// Language-specific SDK import path.
     #[serde(default)]
     pub sdk_import: String,
 }
 
+/// Authentication configuration for a provider spec.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuthConfig {
+    /// API field name for the authentication token.
     #[serde(default)]
     pub token_field: String,
+    /// Environment variable supplying the token.
     #[serde(default)]
     pub env_var: String,
+    /// API field name for the gateway URL.
     #[serde(default)]
     pub gateway_url_field: String,
+    /// Environment variable supplying the gateway URL.
     #[serde(default)]
     pub gateway_env_var: String,
 }
 
+/// Provider-level default settings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProviderDefaults {
+    /// Fields to skip across all resources for this provider.
     #[serde(default)]
     pub skip_fields: Vec<String>,
 }
@@ -208,10 +250,14 @@ impl ProviderSpec {
 /// Top-level data source specification loaded from TOML.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataSourceSpec {
+    /// Data source metadata (name, description).
     pub data_source: DataSourceMeta,
+    /// Read operation mapping.
     pub read: ReadMapping,
+    /// Per-field overrides (skip, computed, sensitive, etc.).
     #[serde(default)]
     pub fields: BTreeMap<String, FieldOverride>,
+    /// Mapping from API response JSON paths to field names.
     #[serde(default)]
     pub read_mapping: BTreeMap<String, String>,
 }
@@ -219,7 +265,9 @@ pub struct DataSourceSpec {
 /// Data source metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataSourceMeta {
+    /// Data source identifier.
     pub name: String,
+    /// Human-readable description.
     #[serde(default)]
     pub description: String,
 }
@@ -227,8 +275,11 @@ pub struct DataSourceMeta {
 /// Maps a read operation to an API endpoint and schema.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReadMapping {
+    /// API path for the read operation.
     pub endpoint: String,
+    /// `OpenAPI` schema name for the read request body.
     pub schema: String,
+    /// `OpenAPI` schema name for the read response, if different.
     #[serde(default)]
     pub response_schema: Option<String>,
 }
