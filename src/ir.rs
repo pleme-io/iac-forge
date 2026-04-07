@@ -37,6 +37,26 @@ pub enum IacType {
     Any,
 }
 
+impl IacType {
+    /// Whether this type is a scalar (String, Integer, Float, Numeric, Boolean).
+    #[must_use]
+    pub fn is_scalar(&self) -> bool {
+        matches!(
+            self,
+            Self::String | Self::Integer | Self::Float | Self::Numeric | Self::Boolean
+        )
+    }
+
+    /// Whether this type is a composite (List, Set, Map, Object).
+    #[must_use]
+    pub fn is_composite(&self) -> bool {
+        matches!(
+            self,
+            Self::List(_) | Self::Set(_) | Self::Map(_) | Self::Object { .. }
+        )
+    }
+}
+
 impl std::fmt::Display for IacType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -1218,5 +1238,46 @@ mod tests {
         let info = AuthInfo::from(&config);
         assert!(!info.has_token());
         assert!(!info.has_gateway());
+    }
+
+    #[test]
+    fn iac_type_is_scalar() {
+        assert!(IacType::String.is_scalar());
+        assert!(IacType::Integer.is_scalar());
+        assert!(IacType::Float.is_scalar());
+        assert!(IacType::Numeric.is_scalar());
+        assert!(IacType::Boolean.is_scalar());
+        assert!(!IacType::List(Box::new(IacType::String)).is_scalar());
+        assert!(!IacType::Set(Box::new(IacType::String)).is_scalar());
+        assert!(!IacType::Map(Box::new(IacType::String)).is_scalar());
+        assert!(!IacType::Object { name: "X".into(), fields: vec![] }.is_scalar());
+        assert!(!IacType::Any.is_scalar());
+    }
+
+    #[test]
+    fn iac_type_is_composite() {
+        assert!(IacType::List(Box::new(IacType::String)).is_composite());
+        assert!(IacType::Set(Box::new(IacType::Integer)).is_composite());
+        assert!(IacType::Map(Box::new(IacType::Boolean)).is_composite());
+        assert!(IacType::Object { name: "X".into(), fields: vec![] }.is_composite());
+        assert!(!IacType::String.is_composite());
+        assert!(!IacType::Integer.is_composite());
+        assert!(!IacType::Any.is_composite());
+    }
+
+    #[test]
+    fn iac_type_enum_is_neither_scalar_nor_composite() {
+        let enum_type = IacType::Enum {
+            values: vec!["a".into()],
+            underlying: Box::new(IacType::String),
+        };
+        assert!(!enum_type.is_scalar());
+        assert!(!enum_type.is_composite());
+    }
+
+    #[test]
+    fn iac_type_any_is_neither_scalar_nor_composite() {
+        assert!(!IacType::Any.is_scalar());
+        assert!(!IacType::Any.is_composite());
     }
 }
