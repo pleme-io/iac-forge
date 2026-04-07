@@ -30,6 +30,25 @@ impl std::fmt::Display for ArtifactKind {
     }
 }
 
+impl std::str::FromStr for ArtifactKind {
+    type Err = IacForgeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "resource" => Ok(Self::Resource),
+            "data_source" => Ok(Self::DataSource),
+            "provider" => Ok(Self::Provider),
+            "test" => Ok(Self::Test),
+            "schema" => Ok(Self::Schema),
+            "module" => Ok(Self::Module),
+            "metadata" => Ok(Self::Metadata),
+            _ => Err(IacForgeError::ValidationError(format!(
+                "unknown artifact kind: {s}"
+            ))),
+        }
+    }
+}
+
 /// A single generated file from a backend.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GeneratedArtifact {
@@ -897,5 +916,29 @@ mod tests {
     fn backend_platform_name() {
         let backend = TestBackend;
         assert_eq!(backend.platform(), "test");
+    }
+
+    #[test]
+    fn artifact_kind_from_str_roundtrip() {
+        let kinds = vec![
+            ArtifactKind::Resource,
+            ArtifactKind::DataSource,
+            ArtifactKind::Provider,
+            ArtifactKind::Test,
+            ArtifactKind::Schema,
+            ArtifactKind::Module,
+            ArtifactKind::Metadata,
+        ];
+        for kind in kinds {
+            let s = kind.to_string();
+            let parsed: ArtifactKind = s.parse().expect("parse");
+            assert_eq!(kind, parsed);
+        }
+    }
+
+    #[test]
+    fn artifact_kind_from_str_invalid() {
+        let result: Result<ArtifactKind, _> = "unknown".parse();
+        assert!(result.is_err());
     }
 }
