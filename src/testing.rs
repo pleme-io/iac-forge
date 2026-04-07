@@ -526,4 +526,105 @@ mod tests {
         assert_eq!(r.identity.import_field, "my_id");
         assert!(r.identity.force_replace_fields.is_empty());
     }
+
+    #[test]
+    fn test_attribute_builder_multiple_hyphens() {
+        let attr = TestAttributeBuilder::new("a-b-c-d", IacType::String).build();
+        assert_eq!(attr.api_name, "a-b-c-d");
+        assert_eq!(attr.canonical_name, "a_b_c_d");
+    }
+
+    #[test]
+    fn test_attribute_builder_json_encoded_flag() {
+        let attr = TestAttributeBuilder::new("policy", IacType::String)
+            .json_encoded()
+            .build();
+        assert!(attr.json_encoded);
+    }
+
+    #[test]
+    fn test_attribute_builder_default_value_types() {
+        let bool_attr = TestAttributeBuilder::new("flag", IacType::Boolean)
+            .default_value(serde_json::json!(true))
+            .build();
+        assert_eq!(bool_attr.default_value, Some(serde_json::json!(true)));
+
+        let num_attr = TestAttributeBuilder::new("count", IacType::Integer)
+            .default_value(serde_json::json!(42))
+            .build();
+        assert_eq!(num_attr.default_value, Some(serde_json::json!(42)));
+
+        let null_attr = TestAttributeBuilder::new("maybe", IacType::String)
+            .default_value(serde_json::json!(null))
+            .build();
+        assert_eq!(null_attr.default_value, Some(serde_json::json!(null)));
+    }
+
+    #[test]
+    fn test_attribute_builder_enum_values_empty() {
+        let attr = TestAttributeBuilder::new("mode", IacType::String)
+            .enum_values(vec![])
+            .build();
+        assert_eq!(attr.enum_values, Some(vec![]));
+    }
+
+    #[test]
+    fn test_resource_identity() {
+        let r = test_resource("secret");
+        assert_eq!(r.identity.id_field, "name");
+        assert_eq!(r.identity.import_field, "name");
+        assert_eq!(r.identity.force_replace_fields, vec!["name"]);
+    }
+
+    #[test]
+    fn test_resource_description() {
+        let r = test_resource("widget");
+        assert_eq!(r.description, "widget test resource");
+        assert_eq!(r.category, "test");
+    }
+
+    #[test]
+    fn test_data_source_description() {
+        let ds = test_data_source("lookup");
+        assert_eq!(ds.description, "lookup test data source");
+    }
+
+    #[test]
+    fn test_resource_with_type_numeric() {
+        let r = test_resource_with_type("measure", "amount", IacType::Numeric);
+        assert_eq!(r.attributes[0].iac_type, IacType::Numeric);
+    }
+
+    #[test]
+    fn test_provider_auth_has_helpers() {
+        let p = test_provider("demo");
+        assert!(p.auth.has_token());
+        assert!(p.auth.has_gateway());
+    }
+
+    #[test]
+    fn test_resource_filter_helpers_via_fixture() {
+        let r = test_resource("secret");
+        let required = r.required_attribute_names();
+        assert_eq!(required, vec!["name", "value"]);
+
+        let sensitive = r.sensitive_attribute_names();
+        assert_eq!(sensitive, vec!["value"]);
+
+        let immutable = r.immutable_attribute_names();
+        assert_eq!(immutable, vec!["name"]);
+    }
+
+    #[test]
+    fn test_data_source_filter_helpers_via_fixture() {
+        let ds = test_data_source("config");
+        let required = ds.required_attribute_names();
+        assert_eq!(required, vec!["name"]);
+
+        let computed = ds.computed_attribute_names();
+        assert_eq!(computed, vec!["value"]);
+
+        let sensitive = ds.sensitive_attribute_names();
+        assert!(sensitive.is_empty());
+    }
 }
