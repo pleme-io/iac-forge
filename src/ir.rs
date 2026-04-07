@@ -227,6 +227,19 @@ pub struct IdentityInfo {
     pub force_replace_fields: Vec<String>,
 }
 
+impl From<&crate::spec::IdentityConfig> for IdentityInfo {
+    fn from(config: &crate::spec::IdentityConfig) -> Self {
+        Self {
+            id_field: config.id_field.clone(),
+            import_field: config
+                .import_field
+                .clone()
+                .unwrap_or_else(|| config.id_field.clone()),
+            force_replace_fields: config.force_new_fields.clone(),
+        }
+    }
+}
+
 /// Common attribute queries shared by both resources and data sources.
 ///
 /// Provides default implementations for filtering attributes by various
@@ -1259,6 +1272,30 @@ mod tests {
         let info = AuthInfo::from(&config);
         assert!(!info.has_token());
         assert!(!info.has_gateway());
+    }
+
+    #[test]
+    fn identity_info_from_identity_config() {
+        let config = crate::spec::IdentityConfig {
+            id_field: "name".to_string(),
+            import_field: Some("path".to_string()),
+            force_new_fields: vec!["name".to_string()],
+        };
+        let info = IdentityInfo::from(&config);
+        assert_eq!(info.id_field, "name");
+        assert_eq!(info.import_field, "path");
+        assert_eq!(info.force_replace_fields, vec!["name"]);
+    }
+
+    #[test]
+    fn identity_info_from_config_defaults_import_field() {
+        let config = crate::spec::IdentityConfig {
+            id_field: "my_id".to_string(),
+            import_field: None,
+            force_new_fields: vec![],
+        };
+        let info = IdentityInfo::from(&config);
+        assert_eq!(info.import_field, "my_id");
     }
 
     #[test]

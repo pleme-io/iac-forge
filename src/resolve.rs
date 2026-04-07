@@ -151,15 +151,7 @@ pub fn resolve_resource(
         category: resource.resource.category.clone(),
         crud: CrudInfo::from(&resource.crud),
         attributes,
-        identity: IdentityInfo {
-            id_field: resource.identity.id_field.clone(),
-            import_field: resource
-                .identity
-                .import_field
-                .clone()
-                .unwrap_or_else(|| resource.identity.id_field.clone()),
-            force_replace_fields: resource.identity.force_new_fields.clone(),
-        },
+        identity: IdentityInfo::from(&resource.identity),
     })
 }
 
