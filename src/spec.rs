@@ -1447,4 +1447,104 @@ id_field = "id"
         assert_eq!(spec.read_mapping.get("response_value"), Some(&"value".to_string()));
         assert_eq!(spec.read_mapping.get("response_count"), Some(&"count".to_string()));
     }
+
+    #[test]
+    fn provider_spec_serde_roundtrip() {
+        let toml_str = r#"
+[provider]
+name = "roundtrip"
+description = "Roundtrip test"
+version = "2.0.0"
+sdk_import = "github.com/example/sdk"
+
+[auth]
+token_field = "token"
+env_var = "TOKEN"
+gateway_url_field = "gw"
+gateway_env_var = "GW"
+
+[defaults]
+skip_fields = ["token", "uid-token"]
+
+[platforms.terraform]
+sdk_import = "github.com/example/tf-sdk"
+"#;
+        let spec = ProviderSpec::from_toml(toml_str).expect("parse");
+        let json = serde_json::to_string(&spec).expect("serialize");
+        let rt: ProviderSpec = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.provider.name, "roundtrip");
+        assert_eq!(rt.provider.version, "2.0.0");
+        assert_eq!(rt.auth.token_field, "token");
+        assert_eq!(rt.auth.gateway_url_field, "gw");
+        assert_eq!(rt.defaults.skip_fields.len(), 2);
+        assert!(rt.platforms.contains_key("terraform"));
+    }
+
+    #[test]
+    fn field_override_serde_roundtrip() {
+        let fo = FieldOverride {
+            computed: true,
+            sensitive: true,
+            skip: false,
+            type_override: Some("bool".to_string()),
+            description: Some("custom".to_string()),
+            force_new: true,
+        };
+        let json = serde_json::to_string(&fo).expect("serialize");
+        let rt: FieldOverride = serde_json::from_str(&json).expect("deserialize");
+        assert!(rt.computed);
+        assert!(rt.sensitive);
+        assert!(!rt.skip);
+        assert_eq!(rt.type_override, Some("bool".to_string()));
+        assert_eq!(rt.description, Some("custom".to_string()));
+        assert!(rt.force_new);
+    }
+
+    #[test]
+    fn identity_config_serde_roundtrip() {
+        let ic = IdentityConfig {
+            id_field: "name".to_string(),
+            import_field: Some("path".to_string()),
+            force_new_fields: vec!["name".to_string()],
+        };
+        let json = serde_json::to_string(&ic).expect("serialize");
+        let rt: IdentityConfig = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.id_field, "name");
+        assert_eq!(rt.import_field, Some("path".to_string()));
+        assert_eq!(rt.force_new_fields, vec!["name"]);
+    }
+
+    #[test]
+    fn crud_mapping_serde_roundtrip() {
+        let cm = CrudMapping {
+            create_endpoint: "/create".to_string(),
+            create_schema: "Create".to_string(),
+            update_endpoint: Some("/update".to_string()),
+            update_schema: Some("Update".to_string()),
+            read_endpoint: "/read".to_string(),
+            read_schema: "Read".to_string(),
+            read_response_schema: Some("ReadResp".to_string()),
+            delete_endpoint: "/delete".to_string(),
+            delete_schema: "Delete".to_string(),
+        };
+        let json = serde_json::to_string(&cm).expect("serialize");
+        let rt: CrudMapping = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.create_endpoint, "/create");
+        assert_eq!(rt.update_endpoint, Some("/update".to_string()));
+        assert_eq!(rt.read_response_schema, Some("ReadResp".to_string()));
+    }
+
+    #[test]
+    fn read_mapping_serde_roundtrip() {
+        let rm = ReadMapping {
+            endpoint: "/read".to_string(),
+            schema: "ReadSchema".to_string(),
+            response_schema: Some("ReadResp".to_string()),
+        };
+        let json = serde_json::to_string(&rm).expect("serialize");
+        let rt: ReadMapping = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rt.endpoint, "/read");
+        assert_eq!(rt.schema, "ReadSchema");
+        assert_eq!(rt.response_schema, Some("ReadResp".to_string()));
+    }
 }

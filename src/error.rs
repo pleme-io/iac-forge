@@ -115,8 +115,63 @@ mod tests {
 
     #[test]
     fn error_is_send_and_sync() {
-        fn assert_send_sync<T: Send>() {}
+        fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<IacForgeError>();
+    }
+
+    #[test]
+    fn error_source_io() {
+        use std::error::Error;
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        let err = IacForgeError::Io(io_err);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn error_source_json() {
+        use std::error::Error;
+        let json_err = serde_json::from_str::<serde_json::Value>("bad").unwrap_err();
+        let err = IacForgeError::Json(json_err);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn error_source_toml() {
+        use std::error::Error;
+        let toml_err = toml::from_str::<toml::Value>("{{").unwrap_err();
+        let err = IacForgeError::Toml(toml_err);
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn error_source_backend_is_none() {
+        use std::error::Error;
+        let err = IacForgeError::BackendError("fail".to_string());
+        assert!(err.source().is_none());
+    }
+
+    #[test]
+    fn error_source_validation_is_none() {
+        use std::error::Error;
+        let err = IacForgeError::ValidationError("invalid".to_string());
+        assert!(err.source().is_none());
+    }
+
+    #[test]
+    fn error_source_schema_not_found_is_none() {
+        use std::error::Error;
+        let err = IacForgeError::SchemaNotFound("Schema".to_string());
+        assert!(err.source().is_none());
+    }
+
+    #[test]
+    fn error_source_missing_endpoint_is_none() {
+        use std::error::Error;
+        let err = IacForgeError::MissingEndpoint {
+            resource: "r".to_string(),
+            endpoint: "/ep".to_string(),
+        };
+        assert!(err.source().is_none());
     }
 
     #[test]

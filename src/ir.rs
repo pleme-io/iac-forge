@@ -767,7 +767,6 @@ mod tests {
 
     #[test]
     fn iac_type_display_nested() {
-        // Nested types display correctly
         assert_eq!(
             IacType::List(Box::new(IacType::List(Box::new(IacType::String)))).to_string(),
             "list<list<string>>"
@@ -775,6 +774,14 @@ mod tests {
         assert_eq!(
             IacType::Map(Box::new(IacType::List(Box::new(IacType::Integer)))).to_string(),
             "map<string, list<integer>>"
+        );
+        assert_eq!(
+            IacType::Set(Box::new(IacType::Set(Box::new(IacType::Boolean)))).to_string(),
+            "set<set<boolean>>"
+        );
+        assert_eq!(
+            IacType::Set(Box::new(IacType::Map(Box::new(IacType::Float)))).to_string(),
+            "set<map<string, float>>"
         );
     }
 
@@ -797,6 +804,45 @@ mod tests {
             update_only: false,
         };
         assert_eq!(attr.to_string(), "tags: list<string> (optional)");
+    }
+
+    #[test]
+    fn iac_type_set_serde_roundtrip() {
+        let set_type = IacType::Set(Box::new(IacType::String));
+        let json = serde_json::to_string(&set_type).expect("serialize");
+        let rt: IacType = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(set_type, rt);
+    }
+
+    #[test]
+    fn iac_type_set_display() {
+        assert_eq!(
+            IacType::Set(Box::new(IacType::String)).to_string(),
+            "set<string>"
+        );
+        assert_eq!(
+            IacType::Set(Box::new(IacType::Integer)).to_string(),
+            "set<integer>"
+        );
+    }
+
+    #[test]
+    fn iac_type_set_equality() {
+        let a = IacType::Set(Box::new(IacType::String));
+        let b = IacType::Set(Box::new(IacType::String));
+        let c = IacType::Set(Box::new(IacType::Integer));
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn iac_type_set_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(IacType::Set(Box::new(IacType::String)));
+        set.insert(IacType::Set(Box::new(IacType::String)));
+        set.insert(IacType::Set(Box::new(IacType::Integer)));
+        assert_eq!(set.len(), 2);
     }
 
     #[test]
@@ -990,6 +1036,24 @@ mod tests {
         assert_eq!(rt.id_field, "name");
         assert_eq!(rt.import_field, "path");
         assert_eq!(rt.force_replace_fields.len(), 2);
+    }
+
+    #[test]
+    fn iac_provider_empty_auth_serializes() {
+        let provider = IacProvider {
+            name: "minimal".to_string(),
+            description: String::new(),
+            version: "0.1.0".to_string(),
+            auth: AuthInfo::default(),
+            skip_fields: vec![],
+            platform_config: BTreeMap::new(),
+        };
+        let json = serde_json::to_string(&provider).expect("serialize");
+        let rt: IacProvider = serde_json::from_str(&json).expect("deserialize");
+        assert!(!rt.auth.has_token());
+        assert!(!rt.auth.has_gateway());
+        assert!(rt.skip_fields.is_empty());
+        assert!(rt.platform_config.is_empty());
     }
 
     #[test]
