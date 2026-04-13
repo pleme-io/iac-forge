@@ -51,6 +51,7 @@ pub fn openapi_to_iac(field_type: &FieldType, type_override: Option<&str>) -> Ia
             underlying: Box::new(openapi_to_iac(underlying, None)),
         },
         FieldType::Any => IacType::Any,
+        other => panic!("unsupported FieldType variant: {other} — add an explicit mapping"),
     }
 }
 
