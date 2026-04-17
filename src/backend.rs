@@ -12,6 +12,9 @@ pub enum ArtifactKind {
     Provider,
     Test,
     Schema,
+    /// Type signature companion file (e.g., RBS alongside a Ruby types file,
+    /// `.d.ts` alongside a `.js`).
+    Signature,
     Module,
     Metadata,
 }
@@ -24,6 +27,7 @@ impl std::fmt::Display for ArtifactKind {
             Self::Provider => write!(f, "provider"),
             Self::Test => write!(f, "test"),
             Self::Schema => write!(f, "schema"),
+            Self::Signature => write!(f, "signature"),
             Self::Module => write!(f, "module"),
             Self::Metadata => write!(f, "metadata"),
         }
@@ -40,6 +44,7 @@ impl std::str::FromStr for ArtifactKind {
             "provider" => Ok(Self::Provider),
             "test" => Ok(Self::Test),
             "schema" => Ok(Self::Schema),
+            "signature" => Ok(Self::Signature),
             "module" => Ok(Self::Module),
             "metadata" => Ok(Self::Metadata),
             _ => Err(IacForgeError::ValidationError(format!(
@@ -428,6 +433,7 @@ mod tests {
             ArtifactKind::Provider,
             ArtifactKind::Test,
             ArtifactKind::Schema,
+            ArtifactKind::Signature,
             ArtifactKind::Module,
             ArtifactKind::Metadata,
         ];
@@ -959,6 +965,7 @@ mod tests {
             ArtifactKind::Provider,
             ArtifactKind::Test,
             ArtifactKind::Schema,
+            ArtifactKind::Signature,
             ArtifactKind::Module,
             ArtifactKind::Metadata,
         ];
