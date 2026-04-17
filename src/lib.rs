@@ -20,6 +20,8 @@ pub mod sexpr_diff;
 pub mod remediation;
 /// Content-addressed cache over backend rendering.
 pub mod render_cache;
+/// Fleet: named collection of IacResource values with composite hashing.
+pub mod fleet;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
