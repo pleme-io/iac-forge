@@ -26,6 +26,8 @@ pub mod fleet;
 pub mod policy;
 /// Sexpr ↔ Nix AST bridge (NixValue + round-trip to SExpr).
 pub mod nix;
+/// Nix backend: `Backend` impl rendering IR as Nix attribute sets.
+pub mod nix_backend;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
