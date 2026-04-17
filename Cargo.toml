@@ -15,6 +15,14 @@ keywords = ["iac", "codegen", "openapi", "terraform", "pulumi"]
 [lints.clippy]
 pedantic = "warn"
 
+[features]
+default = []
+# Rust-level sui (pure-Rust Nix) integration — evaluates Nix transforms
+# in-process rather than shelling out. Pulls in the full sui-eval crate.
+# Named sui-eval (not just "sui") to avoid ambiguity with the sui package
+# in cargo's --features resolution.
+sui-eval = ["dep:sui-eval"]
+
 [dependencies]
 blake3 = "1.8"
 meimei = { git = "https://github.com/pleme-io/meimei" }
@@ -22,6 +30,7 @@ openapi-forge = { git = "https://github.com/pleme-io/openapi-forge" }
 takumi = { git = "https://github.com/pleme-io/takumi" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sui-eval = { git = "https://github.com/pleme-io/sui", optional = true }
 thiserror = "2"
 toml = "0.8"
 

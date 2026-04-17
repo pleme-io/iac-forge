@@ -30,6 +30,9 @@ pub mod nix;
 pub mod nix_backend;
 /// Nix-powered IR transforms (external evaluator: nix-instantiate or sui).
 pub mod nix_transform;
+/// Rust-level sui integration — in-process Nix transforms.
+#[cfg(feature = "sui-eval")]
+pub mod sui_transform;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
