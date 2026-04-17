@@ -78,6 +78,60 @@ This closes the loop:
 The system is a **fixed point**: Lisp generates the Rust that Lisp
 generates over.
 
+## The first non-trivial instance: mathscape
+
+When METACIRCULAR.md was originally written, axiom-forge had only
+hand-written sexpr proposals. `pleme-io/mathscape` is the first
+**non-trivial Lisp-side generator** — one that produces proposals
+from *learned structure* rather than hand-typed files. See
+`pleme-io/mathscape/docs/arch/machine-synthesis.md` for the canonical
+architectural picture.
+
+The METACIRCULAR loop shown above corresponds to gates 6 + 7 of a
+larger **ten-gate realization lattice** that mathscape defines:
+
+| Gate | Owned by  | Class          | What it enforces                              |
+|------|-----------|----------------|------------------------------------------------|
+| 1    | mathscape | local          | compression floor ε (MDL ΔDL ≥ ε)             |
+| 2    | mathscape | local          | coverage delta ≥ 0 (no lost matches)          |
+| 3    | mathscape | local          | irreducibility (not derivable from library)   |
+| V/X/A| mathscape | structural     | reinforcement advances (verified/exported/axiomatized) |
+| 4    | mathscape | temporal       | condensation K (subsumes ≥ K entries)         |
+| 5    | mathscape | temporal       | cross-corpus N (≥ N distinct corpora)         |
+| 6    | axiom-forge | type-theoretic | 7 structural obligations (this repo)         |
+| 7    | rustc     | type-theoretic | generated code compiles                       |
+
+axiom-forge's seven obligations are one of ten gates. This is the
+correct level of abstraction: axiom-forge does not know whether the
+upstream generator was hand-typed or learned. Proposals enter with
+the same shape, cross the same gates, and return the same
+`(Certificate, EmissionOutput, FrozenVector)` tuple.
+
+Mathscape contributes:
+
+- **Temporal evidence** — a proposal reaches axiom-forge only after
+  surviving condensation K and cross-corpus N across a history of
+  epochs. Hand-typed proposals skipped this; learned proposals cannot.
+- **Reward as condensation** — mathscape emits proposals when the
+  description-length calculus justifies them. The reward is not
+  "did this look interesting" but "does this shorten the total
+  library+corpus description".
+- **Reinforcement loop** — mathscape pushes every existing library
+  entry toward its most axiomatic state every epoch; discovery fires
+  only on plateau. Proposals that reach axiom-forge have already
+  survived reinforcement.
+- **Migration reports** — on successful promotion (gate 7 passed),
+  mathscape rewrites its library to use the new primitive and emits
+  a `MigrationReport` that is itself content-addressed and enters the
+  Merkle DAG. The loop is thus visibly completed, not just
+  conceptually closed.
+
+The pattern generalizes: any Lisp-side generator that produces
+`AxiomProposal` values + stable PromotionSignal evidence can be
+plugged into axiom-forge. Future generators (an LLM, a human IDE, a
+different learning system) use the same handoff, documented in
+`axiom-forge/docs/MATHSCAPE_HANDOFF.md`.
+
 ## Precedents (researched)
 
 This pattern has appeared in pieces across programming-language
