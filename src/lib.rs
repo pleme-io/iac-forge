@@ -28,6 +28,8 @@ pub mod policy;
 pub mod nix;
 /// Nix backend: `Backend` impl rendering IR as Nix attribute sets.
 pub mod nix_backend;
+/// Nix-powered IR transforms (external evaluator: nix-instantiate or sui).
+pub mod nix_transform;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
