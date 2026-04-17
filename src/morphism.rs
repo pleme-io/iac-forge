@@ -172,6 +172,120 @@ impl<T: Clone + PartialEq> ProvenMorphism<T, T> for Identity<T> {
     }
 }
 
+// ── Backend → ProvenMorphism blanket impl ────────────────────────────
+//
+// Every `Backend` is, by definition, a morphism from (resource, provider)
+// to a list of artifacts. Rather than ask each of the 7 backends to
+// impl `ProvenMorphism` by hand, we provide a blanket impl so they all
+// get it for free. The invariants checked are what every backend must
+// satisfy in any case:
+//
+// 1. Determinism: calling `generate_resource` twice with the same inputs
+//    returns artifacts with identical (path, content, kind) triples.
+// 2. No empty artifacts: every produced artifact has a non-empty path
+//    and non-empty content.
+// 3. No duplicate paths: an artifact list never contains two entries
+//    with the same output path.
+//
+// These are the *same* invariants iac-forge's existing backend tests
+// already enforce test-by-test; the blanket impl lifts them into the
+// type system so composition (and cross-backend analysis) can rely on
+// them structurally.
+
+/// Wrapper identifying the (resource, provider) pair as a source value.
+///
+/// Needed because `ProvenMorphism<Src, Dst>` requires a single Src type,
+/// and `Backend::generate_resource` takes two references.
+#[derive(Debug, Clone)]
+pub struct ResourceInput<'a> {
+    pub resource: &'a crate::ir::IacResource,
+    pub provider: &'a crate::ir::IacProvider,
+}
+
+impl<B: crate::backend::Backend> Morphism<ResourceInput<'_>, Vec<crate::backend::GeneratedArtifact>>
+    for B
+{
+    fn name(&self) -> &'static str {
+        "Backend::generate_resource"
+    }
+
+    fn apply(&self, src: &ResourceInput<'_>) -> Vec<crate::backend::GeneratedArtifact> {
+        // A `Morphism` is total by contract. Backend errors collapse to
+        // an empty artifact list — the invariant check below will flag
+        // that as a violation so the caller sees the failure via
+        // `check_invariants` rather than a panic here.
+        <B as crate::backend::Backend>::generate_resource(self, src.resource, src.provider)
+            .unwrap_or_default()
+    }
+}
+
+impl<B: crate::backend::Backend>
+    ProvenMorphism<ResourceInput<'_>, Vec<crate::backend::GeneratedArtifact>> for B
+{
+    fn check_invariants(
+        &self,
+        src: &ResourceInput<'_>,
+        dst: &Vec<crate::backend::GeneratedArtifact>,
+    ) -> Vec<String> {
+        let mut violations = Vec::new();
+
+        // Determinism: re-run must match.
+        let rerun = <B as crate::backend::Backend>::generate_resource(
+            self,
+            src.resource,
+            src.provider,
+        )
+        .unwrap_or_default();
+        if &rerun != dst {
+            violations.push(format!(
+                "backend {}: non-deterministic — re-run differs",
+                <B as crate::backend::Backend>::platform(self),
+            ));
+        }
+
+        // Empty outputs are always a violation: every backend must emit
+        // something for a well-formed resource.
+        if dst.is_empty() {
+            violations.push(format!(
+                "backend {}: empty artifact list",
+                <B as crate::backend::Backend>::platform(self),
+            ));
+        }
+
+        // No empty paths or contents.
+        for a in dst {
+            if a.path.is_empty() {
+                violations.push(format!(
+                    "backend {}: artifact with empty path",
+                    <B as crate::backend::Backend>::platform(self),
+                ));
+            }
+            if a.content.is_empty() {
+                violations.push(format!(
+                    "backend {}: artifact '{}' has empty content",
+                    <B as crate::backend::Backend>::platform(self),
+                    a.path,
+                ));
+            }
+        }
+
+        // No duplicate paths.
+        let mut paths: Vec<&str> = dst.iter().map(|a| a.path.as_str()).collect();
+        paths.sort_unstable();
+        for pair in paths.windows(2) {
+            if pair[0] == pair[1] {
+                violations.push(format!(
+                    "backend {}: duplicate artifact path '{}'",
+                    <B as crate::backend::Backend>::platform(self),
+                    pair[0],
+                ));
+            }
+        }
+
+        violations
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,5 +417,218 @@ mod tests {
         let a = c.apply(&7);
         let b = c.apply(&7);
         assert_eq!(a, b);
+    }
+
+    // ── Blanket Backend → ProvenMorphism tests ────────────────────
+
+    use crate::backend::{ArtifactKind, Backend, GeneratedArtifact, NamingConvention};
+    use crate::error::IacForgeError;
+    use crate::ir::{IacDataSource, IacProvider, IacResource};
+
+    struct GoodBackend;
+    struct GoodNaming;
+    impl NamingConvention for GoodNaming {
+        fn resource_type_name(&self, r: &str, p: &str) -> String {
+            format!("{p}_{r}")
+        }
+        fn file_name(&self, r: &str, _k: &ArtifactKind) -> String {
+            format!("{r}.out")
+        }
+        fn field_name(&self, n: &str) -> String {
+            n.to_string()
+        }
+    }
+    impl Backend for GoodBackend {
+        fn platform(&self) -> &str {
+            "good"
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &GoodNaming
+        }
+        fn generate_resource(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![GeneratedArtifact {
+                path: "main.out".into(),
+                content: "body".into(),
+                kind: ArtifactKind::Resource,
+            }])
+        }
+        fn generate_data_source(
+            &self,
+            _d: &IacDataSource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _p: &IacProvider,
+            _r: &[IacResource],
+            _d: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+    }
+
+    fn sample_input() -> (crate::ir::IacResource, crate::ir::IacProvider) {
+        (
+            crate::testing::test_resource("widget"),
+            crate::testing::test_provider("acme"),
+        )
+    }
+
+    #[test]
+    fn backend_is_a_morphism() {
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].path, "main.out");
+    }
+
+    #[test]
+    fn backend_morphism_proofs_hold_on_good_backend() {
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        let violations = <GoodBackend as ProvenMorphism<_, _>>::check_invariants(
+            &GoodBackend,
+            &input,
+            &out,
+        );
+        assert!(violations.is_empty(), "violations: {violations:?}");
+    }
+
+    // A backend that returns duplicate paths — must be caught.
+    struct DupBackend;
+    impl Backend for DupBackend {
+        fn platform(&self) -> &str {
+            "dup"
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &GoodNaming
+        }
+        fn generate_resource(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![
+                GeneratedArtifact {
+                    path: "dup.out".into(),
+                    content: "a".into(),
+                    kind: ArtifactKind::Resource,
+                },
+                GeneratedArtifact {
+                    path: "dup.out".into(),
+                    content: "b".into(),
+                    kind: ArtifactKind::Resource,
+                },
+            ])
+        }
+        fn generate_data_source(
+            &self,
+            _d: &IacDataSource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _p: &IacProvider,
+            _r: &[IacResource],
+            _d: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+    }
+
+    #[test]
+    fn backend_morphism_catches_duplicate_paths() {
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <DupBackend as Morphism<_, _>>::apply(&DupBackend, &input);
+        let violations = <DupBackend as ProvenMorphism<_, _>>::check_invariants(
+            &DupBackend,
+            &input,
+            &out,
+        );
+        assert!(
+            violations.iter().any(|v| v.contains("duplicate artifact path")),
+            "expected duplicate-path violation: {violations:?}",
+        );
+    }
+
+    // A backend that returns an empty artifact list — must be caught.
+    struct EmptyBackend;
+    impl Backend for EmptyBackend {
+        fn platform(&self) -> &str {
+            "empty"
+        }
+        fn naming(&self) -> &dyn NamingConvention {
+            &GoodNaming
+        }
+        fn generate_resource(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_data_source(
+            &self,
+            _d: &IacDataSource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _p: &IacProvider,
+            _r: &[IacResource],
+            _d: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+    }
+
+    #[test]
+    fn backend_morphism_catches_empty_artifact_list() {
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <EmptyBackend as Morphism<_, _>>::apply(&EmptyBackend, &input);
+        let violations = <EmptyBackend as ProvenMorphism<_, _>>::check_invariants(
+            &EmptyBackend,
+            &input,
+            &out,
+        );
+        assert!(
+            violations.iter().any(|v| v.contains("empty artifact list")),
+            "expected empty-list violation: {violations:?}",
+        );
     }
 }
