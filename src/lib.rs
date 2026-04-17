@@ -24,6 +24,8 @@ pub mod render_cache;
 pub mod fleet;
 /// Policy-as-code over sexpr patterns.
 pub mod policy;
+/// Sexpr ↔ Nix AST bridge (NixValue + round-trip to SExpr).
+pub mod nix;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
