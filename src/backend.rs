@@ -4,9 +4,10 @@ use crate::error::IacForgeError;
 use crate::ir::{IacDataSource, IacProvider, IacResource};
 
 /// Kind of generated artifact.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum ArtifactKind {
+    #[default]
     Resource,
     DataSource,
     Provider,
@@ -55,8 +56,17 @@ impl std::str::FromStr for ArtifactKind {
 }
 
 /// A single generated file from a backend.
+///
+/// The `source_hash` and `morphism_chain` fields carry provenance —
+/// they answer "where did this file come from?" in a machine-readable
+/// form. They are populated automatically by the blanket
+/// `Morphism<ResourceInput, Vec<GeneratedArtifact>>` impl on every
+/// `Backend`, so handwritten backend code rarely has to set them.
+///
+/// Both default to empty so the addition is non-breaking for
+/// consumers that construct artifacts directly.
 #[must_use]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GeneratedArtifact {
     /// Relative output path for the file.
     pub path: String,
@@ -64,16 +74,47 @@ pub struct GeneratedArtifact {
     pub content: String,
     /// What kind of artifact this is.
     pub kind: ArtifactKind,
+    /// Content hash (lowercase hex, 64 chars) of the source IR value
+    /// this artifact was rendered from. Empty string when unattached.
+    #[serde(default)]
+    pub source_hash: String,
+    /// Ordered list of morphism names applied to produce this artifact.
+    /// First element is the outermost morphism (typically the Backend
+    /// name); last is the innermost. Empty when unattached.
+    #[serde(default)]
+    pub morphism_chain: Vec<String>,
 }
 
 impl GeneratedArtifact {
     /// Create a new artifact with the given path, content, and kind.
+    /// Provenance fields default to empty.
     pub fn new(path: impl Into<String>, content: impl Into<String>, kind: ArtifactKind) -> Self {
         Self {
             path: path.into(),
             content: content.into(),
             kind,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         }
+    }
+
+    /// Attach provenance: record the source IR's content hash and the
+    /// morphism chain that produced this artifact. Returns `self` for
+    /// method chaining.
+    pub fn with_provenance(
+        mut self,
+        source_hash: impl Into<String>,
+        morphism_chain: Vec<String>,
+    ) -> Self {
+        self.source_hash = source_hash.into();
+        self.morphism_chain = morphism_chain;
+        self
+    }
+
+    /// Whether this artifact carries a source-hash attestation.
+    #[must_use]
+    pub fn has_provenance(&self) -> bool {
+        !self.source_hash.is_empty()
     }
 }
 
@@ -254,6 +295,8 @@ mod tests {
                 path: format!("resource_{}.go", resource.name),
                 content: String::new(),
                 kind: ArtifactKind::Resource,
+                source_hash: String::new(),
+                morphism_chain: Vec::new(),
             }])
         }
         fn generate_data_source(
@@ -265,6 +308,8 @@ mod tests {
                 path: format!("data_source_{}.go", ds.name),
                 content: String::new(),
                 kind: ArtifactKind::DataSource,
+                source_hash: String::new(),
+                morphism_chain: Vec::new(),
             }])
         }
         fn generate_provider(
@@ -273,10 +318,12 @@ mod tests {
             _resources: &[IacResource],
             _data_sources: &[IacDataSource],
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
-            Ok(vec![GeneratedArtifact {
+            Ok(vec![GeneratedArtifact { 
                 path: "provider.go".to_string(),
                 content: String::new(),
                 kind: ArtifactKind::Provider,
+                source_hash: String::new(),
+                morphism_chain: Vec::new(),
             }])
         }
         fn generate_test(
@@ -288,6 +335,8 @@ mod tests {
                 path: format!("resource_{}_test.go", resource.name),
                 content: String::new(),
                 kind: ArtifactKind::Test,
+                source_hash: String::new(),
+                morphism_chain: Vec::new(),
             }])
         }
         fn naming(&self) -> &dyn NamingConvention {
@@ -405,20 +454,24 @@ mod tests {
 
     #[test]
     fn generated_artifact_display() {
-        let artifact = GeneratedArtifact {
+        let artifact = GeneratedArtifact { 
             path: "resource_secret.go".to_string(),
             content: "package main".to_string(),
             kind: ArtifactKind::Resource,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[resource] resource_secret.go");
     }
 
     #[test]
     fn generated_artifact_serialize_roundtrip() {
-        let artifact = GeneratedArtifact {
+        let artifact = GeneratedArtifact { 
             path: "provider.go".to_string(),
             content: "code here".to_string(),
             kind: ArtifactKind::Provider,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         let json = serde_json::to_string(&artifact).expect("serialize");
         let deserialized: GeneratedArtifact = serde_json::from_str(&json).expect("deserialize");
@@ -866,40 +919,50 @@ mod tests {
 
     #[test]
     fn generated_artifact_display_data_source() {
-        let artifact = GeneratedArtifact {
+        let artifact = GeneratedArtifact { 
             path: "data_source_config.go".to_string(),
             content: String::new(),
             kind: ArtifactKind::DataSource,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[data_source] data_source_config.go");
     }
 
     #[test]
     fn generated_artifact_display_test() {
-        let artifact = GeneratedArtifact {
+        let artifact = GeneratedArtifact { 
             path: "resource_secret_test.go".to_string(),
             content: "test code".to_string(),
             kind: ArtifactKind::Test,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[test] resource_secret_test.go");
     }
 
     #[test]
     fn generated_artifact_equality() {
-        let a = GeneratedArtifact {
+        let a = GeneratedArtifact { 
             path: "a.go".to_string(),
             content: "content".to_string(),
             kind: ArtifactKind::Resource,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
-        let b = GeneratedArtifact {
+        let b = GeneratedArtifact { 
             path: "a.go".to_string(),
             content: "content".to_string(),
             kind: ArtifactKind::Resource,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
-        let c = GeneratedArtifact {
+        let c = GeneratedArtifact { 
             path: "a.go".to_string(),
             content: "different".to_string(),
             kind: ArtifactKind::Resource,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(a, b);
         assert_ne!(a, c);
@@ -911,6 +974,8 @@ mod tests {
             path: "metadata.json".to_string(),
             content: "{}".to_string(),
             kind: ArtifactKind::Metadata,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[metadata] metadata.json");
     }
@@ -921,16 +986,20 @@ mod tests {
             path: "schema.json".to_string(),
             content: "{}".to_string(),
             kind: ArtifactKind::Schema,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[schema] schema.json");
     }
 
     #[test]
     fn generated_artifact_display_module() {
-        let artifact = GeneratedArtifact {
+        let artifact = GeneratedArtifact { 
             path: "index.ts".to_string(),
             content: String::new(),
             kind: ArtifactKind::Module,
+            source_hash: String::new(),
+            morphism_chain: Vec::new(),
         };
         assert_eq!(artifact.to_string(), "[module] index.ts");
     }

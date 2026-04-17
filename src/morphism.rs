@@ -210,12 +210,34 @@ impl<B: crate::backend::Backend> Morphism<ResourceInput<'_>, Vec<crate::backend:
     }
 
     fn apply(&self, src: &ResourceInput<'_>) -> Vec<crate::backend::GeneratedArtifact> {
+        use crate::sexpr::ToSExpr;
         // A `Morphism` is total by contract. Backend errors collapse to
         // an empty artifact list — the invariant check below will flag
         // that as a violation so the caller sees the failure via
         // `check_invariants` rather than a panic here.
-        <B as crate::backend::Backend>::generate_resource(self, src.resource, src.provider)
-            .unwrap_or_default()
+        let mut artifacts =
+            <B as crate::backend::Backend>::generate_resource(self, src.resource, src.provider)
+                .unwrap_or_default();
+
+        // Populate provenance on each artifact: content hash of the
+        // source IR + the morphism chain that produced it. Backends
+        // that set their own provenance are respected (we only touch
+        // artifacts whose source_hash is still empty).
+        let source_hash = src.resource.content_hash().to_hex();
+        let platform = <B as crate::backend::Backend>::platform(self);
+        let chain = vec![
+            format!("Backend::{platform}"),
+            "generate_resource".to_string(),
+        ];
+        for a in &mut artifacts {
+            if a.source_hash.is_empty() {
+                a.source_hash.clone_from(&source_hash);
+            }
+            if a.morphism_chain.is_empty() {
+                a.morphism_chain = chain.clone();
+            }
+        }
+        artifacts
     }
 }
 
@@ -229,13 +251,9 @@ impl<B: crate::backend::Backend>
     ) -> Vec<String> {
         let mut violations = Vec::new();
 
-        // Determinism: re-run must match.
-        let rerun = <B as crate::backend::Backend>::generate_resource(
-            self,
-            src.resource,
-            src.provider,
-        )
-        .unwrap_or_default();
+        // Determinism: re-run (through apply, which also populates
+        // provenance so the comparison is apples-to-apples) must match.
+        let rerun = <B as Morphism<_, _>>::apply(self, src);
         if &rerun != dst {
             violations.push(format!(
                 "backend {}: non-deterministic — re-run differs",
@@ -450,10 +468,12 @@ mod tests {
             _r: &IacResource,
             _p: &IacProvider,
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
-            Ok(vec![GeneratedArtifact {
+            Ok(vec![GeneratedArtifact { 
                 path: "main.out".into(),
                 content: "body".into(),
                 kind: ArtifactKind::Resource,
+                source_hash: String::new(),
+                morphism_chain: Vec::new(),
             }])
         }
         fn generate_data_source(
@@ -524,15 +544,19 @@ mod tests {
             _p: &IacProvider,
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
             Ok(vec![
-                GeneratedArtifact {
+                GeneratedArtifact { 
                     path: "dup.out".into(),
                     content: "a".into(),
                     kind: ArtifactKind::Resource,
+                    source_hash: String::new(),
+                    morphism_chain: Vec::new(),
                 },
-                GeneratedArtifact {
+                GeneratedArtifact { 
                     path: "dup.out".into(),
                     content: "b".into(),
                     kind: ArtifactKind::Resource,
+                    source_hash: String::new(),
+                    morphism_chain: Vec::new(),
                 },
             ])
         }
@@ -614,6 +638,89 @@ mod tests {
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
             Ok(vec![])
         }
+    }
+
+    // ── Provenance population ────────────────────────────────
+
+    #[test]
+    fn backend_morphism_populates_source_hash() {
+        use crate::sexpr::ToSExpr;
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        assert_eq!(out.len(), 1);
+        let expected_hash = r.content_hash().to_hex();
+        assert_eq!(out[0].source_hash, expected_hash);
+        assert!(out[0].has_provenance());
+    }
+
+    #[test]
+    fn backend_morphism_populates_morphism_chain() {
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        assert_eq!(out[0].morphism_chain.len(), 2);
+        assert_eq!(out[0].morphism_chain[0], "Backend::good");
+        assert_eq!(out[0].morphism_chain[1], "generate_resource");
+    }
+
+    #[test]
+    fn backend_morphism_respects_pre_set_provenance() {
+        // If a backend proactively sets provenance, the blanket impl
+        // must not overwrite it.
+        struct PreSetBackend;
+        impl Backend for PreSetBackend {
+            fn platform(&self) -> &str { "preset" }
+            fn naming(&self) -> &dyn NamingConvention { &GoodNaming }
+            fn generate_resource(
+                &self,
+                _r: &IacResource,
+                _p: &IacProvider,
+            ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+                Ok(vec![GeneratedArtifact {
+                    path: "main.out".into(),
+                    content: "body".into(),
+                    kind: ArtifactKind::Resource,
+                    source_hash: "manually-set".into(),
+                    morphism_chain: vec!["custom".into()],
+                }])
+            }
+            fn generate_data_source(&self, _d: &IacDataSource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
+            fn generate_provider(&self, _p: &IacProvider, _r: &[IacResource], _d: &[IacDataSource]) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
+            fn generate_test(&self, _r: &IacResource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
+        }
+
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let out = <PreSetBackend as Morphism<_, _>>::apply(&PreSetBackend, &input);
+        assert_eq!(out[0].source_hash, "manually-set");
+        assert_eq!(out[0].morphism_chain, vec!["custom".to_string()]);
+    }
+
+    #[test]
+    fn backend_morphism_source_hash_is_deterministic() {
+        // Same IR should always yield the same source hash.
+        let (r, p) = sample_input();
+        let input = ResourceInput { resource: &r, provider: &p };
+        let a = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        let b = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
+        assert_eq!(a[0].source_hash, b[0].source_hash);
+    }
+
+    #[test]
+    fn backend_morphism_different_resources_different_hashes() {
+        let p = crate::testing::test_provider("acme");
+        let r1 = crate::testing::test_resource("widget");
+        let r2 = crate::testing::test_resource("gadget");
+        let out1 = <GoodBackend as Morphism<_, _>>::apply(
+            &GoodBackend,
+            &ResourceInput { resource: &r1, provider: &p },
+        );
+        let out2 = <GoodBackend as Morphism<_, _>>::apply(
+            &GoodBackend,
+            &ResourceInput { resource: &r2, provider: &p },
+        );
+        assert_ne!(out1[0].source_hash, out2[0].source_hash);
     }
 
     #[test]
