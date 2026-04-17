@@ -22,6 +22,8 @@ pub mod remediation;
 pub mod render_cache;
 /// Fleet: named collection of IacResource values with composite hashing.
 pub mod fleet;
+/// Policy-as-code over sexpr patterns.
+pub mod policy;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
