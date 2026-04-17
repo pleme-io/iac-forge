@@ -327,6 +327,31 @@ let attr = TestAttributeBuilder::new("key", IacType::String).required().sensitiv
 Hyphenated names are auto-converted to snake_case for `canonical_name`
 (e.g., `"my-field"` → api_name `"my-field"`, canonical_name `"my_field"`).
 
+## Where iac-forge sits in the platform loop
+
+iac-forge provides the **axiom set** layer for infrastructure. See
+`docs/CANDIDATE_LOOP.md` for the full pattern. iac-forge's role:
+
+- **Axioms**: `IacType` (11 variants, `#[non_exhaustive]`), `ArtifactKind`,
+  `ResourceOp` (transform DSL), `Pattern` / `Rule` (policy DSL),
+  `StageKind` (pipeline DSL). Each is a closed Rust enum; users can't
+  invent primitives.
+- **Candidate generation**: Lisp / sexpr composes over the axioms via
+  the canonical sexpr interchange (every type implements `ToSExpr`
+  with BLAKE3 content addressing).
+- **Composition proofs**: arch-synthesizer verifies architectural
+  compositions of IacResources; iac-forge's own `Morphism::check_invariants`
+  gates every transformation.
+- **Runtime verifier**: the `Backend` trait (+ blanket `ProvenMorphism`
+  impl) renders the candidate; `ml-forge` + `substrate-forge` run
+  the rendered artifacts when the domain is execution.
+- **Decision**: `RenderCache` + `Fleet::content_hash` + tameshi
+  attestation cache the winner. Losing candidates evaporate with their
+  Pods.
+
+Every module in iac-forge declares its place in this loop. Downstream
+backends inherit the discipline automatically via the blanket impls.
+
 ## Test Count
 
 540+ tests across lib + integration covering:
