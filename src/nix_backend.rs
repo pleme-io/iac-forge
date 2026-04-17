@@ -231,6 +231,89 @@ fn render(value: &NixValue) -> String {
     out
 }
 
+/// Emit an IR resource as a Nix **fixed-output derivation**
+/// content-addressed on the IR's canonical sexpr hash.
+///
+/// This is the convergence-computing realization for IR: the resource
+/// becomes a real Nix build artifact with a deterministic store path.
+/// Re-evaluating with an unchanged IR hits Nix's store cache; any drift
+/// in the IR produces a new hash and therefore a new path.
+///
+/// The emitted file imports nixpkgs and produces a derivation whose:
+/// - `name` is `iac-forge-<provider>-<resource>`
+/// - `outputHashAlgo` is `"blake3"` (requires Nix ≥ 2.19 with
+///   `--extra-experimental-features blake3-hashes`)
+/// - `outputHash` is the resource's content_hash hex
+/// - build script materializes the canonical sexpr text
+///
+/// ```nix
+/// { pkgs ? import <nixpkgs> {} }:
+/// pkgs.runCommand "iac-forge-acme-widget" {
+///   outputHashAlgo = "blake3";
+///   outputHashMode = "flat";
+///   outputHash = "df476bed…";
+///   passAsFile = [ "sexpr" ];
+///   sexpr = "(resource (:name \"widget\") …)";
+/// } ''
+///   cp "$sexprPath" "$out"
+/// ''
+/// ```
+///
+/// Since `outputHash` is `content_hash`, the store path is *exactly*
+/// the IR's identity in Nix terms — one-to-one correspondence between
+/// our ContentHash and Nix's derivation identity.
+pub fn emit_fod(
+    resource: &IacResource,
+    provider: &IacProvider,
+) -> GeneratedArtifact {
+    use crate::sexpr::ToSExpr;
+
+    let sexpr_text = resource.to_sexpr().emit();
+    let hash_hex = resource.content_hash().to_hex();
+    let name = format!("iac-forge-{}-{}", provider.name, resource.name);
+
+    // Escape the sexpr for safe embedding in a Nix string literal.
+    let mut escaped = String::with_capacity(sexpr_text.len() + 16);
+    for c in sexpr_text.chars() {
+        match c {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '$' => escaped.push_str("\\$"),
+            c => escaped.push(c),
+        }
+    }
+
+    let content = format!(
+        "{DO_NOT_EDIT_HEADER}\
+         # Fixed-output derivation content-addressed on IR sexpr BLAKE3.\n\
+         # Evaluate with: nix-build --extra-experimental-features blake3-hashes\n\n\
+         {{ pkgs ? import <nixpkgs> {{}} }}:\n\n\
+         pkgs.runCommand \"{name}\" {{\n  \
+           outputHashAlgo = \"blake3\";\n  \
+           outputHashMode = \"flat\";\n  \
+           outputHash = \"{hash_hex}\";\n  \
+           passAsFile = [ \"sexpr\" ];\n  \
+           sexpr = \"{escaped}\";\n\
+         }} ''\n  \
+           cp \"$sexprPath\" \"$out\"\n\
+         ''\n",
+    );
+
+    GeneratedArtifact {
+        path: format!(
+            "derivations/{}_{}.nix",
+            provider.name, resource.name
+        ),
+        content,
+        kind: ArtifactKind::Metadata,
+        source_hash: hash_hex,
+        morphism_chain: vec![
+            "Backend::nix".to_string(),
+            "emit_fod".to_string(),
+        ],
+    }
+}
+
 // ── Backend trait impl ───────────────────────────────────────────
 
 impl Backend for NixBackend {
@@ -483,5 +566,74 @@ mod tests {
         let p = test_provider("acme");
         let content = &backend().generate_resource(&r, &p).unwrap()[0].content;
         assert!(content.contains("type = \"numeric\""));
+    }
+
+    // ── Fixed-output derivation emission ─────────────────────
+
+    #[test]
+    fn fod_has_resource_hash_as_output_hash() {
+        let r = test_resource("widget");
+        let p = test_provider("acme");
+        let expected_hex = r.content_hash().to_hex();
+        let fod = emit_fod(&r, &p);
+        assert!(
+            fod.content.contains(&format!("outputHash = \"{expected_hex}\""))
+        );
+    }
+
+    #[test]
+    fn fod_names_derivation_iac_forge_prefixed() {
+        let r = test_resource("widget");
+        let p = test_provider("acme");
+        let fod = emit_fod(&r, &p);
+        assert!(fod.content.contains("iac-forge-acme-widget"));
+    }
+
+    #[test]
+    fn fod_path_is_deterministic() {
+        let r = test_resource("widget");
+        let p = test_provider("acme");
+        let a = emit_fod(&r, &p);
+        let b = emit_fod(&r, &p);
+        assert_eq!(a.path, b.path);
+        assert_eq!(a.content, b.content);
+    }
+
+    #[test]
+    fn fod_different_resources_produce_different_hashes() {
+        let p = test_provider("acme");
+        let r1 = test_resource("widget");
+        let r2 = test_resource("gadget");
+        assert_ne!(emit_fod(&r1, &p).source_hash, emit_fod(&r2, &p).source_hash);
+    }
+
+    #[test]
+    fn fod_embeds_sexpr_with_escaping() {
+        // Make sure " and $ inside the sexpr get escaped so the
+        // emitted Nix string literal stays valid.
+        let mut r = test_resource("widget");
+        r.description = "contains \"quotes\" and $vars".into();
+        let p = test_provider("acme");
+        let fod = emit_fod(&r, &p);
+        assert!(fod.content.contains("\\\""), "quotes must be escaped");
+        assert!(fod.content.contains("\\$"), "dollar signs must be escaped");
+    }
+
+    #[test]
+    fn fod_carries_provenance_chain() {
+        let r = test_resource("widget");
+        let p = test_provider("acme");
+        let fod = emit_fod(&r, &p);
+        assert_eq!(fod.morphism_chain, vec!["Backend::nix", "emit_fod"]);
+        assert!(fod.has_provenance());
+    }
+
+    #[test]
+    fn fod_uses_blake3_output_hash_algo() {
+        let r = test_resource("widget");
+        let p = test_provider("acme");
+        let fod = emit_fod(&r, &p);
+        assert!(fod.content.contains("outputHashAlgo = \"blake3\""));
+        assert!(fod.content.contains("outputHashMode = \"flat\""));
     }
 }
