@@ -190,6 +190,54 @@ proptest! {
         }
     }
 
+    /// Content hash is deterministic across a round-trip.
+    #[test]
+    fn iac_type_content_hash_stable_on_round_trip(ty in arb_iac_type()) {
+        let original = ty.content_hash();
+        let round = IacType::from_sexpr(&ty.to_sexpr()).unwrap().content_hash();
+        prop_assert_eq!(original, round);
+    }
+
+    /// Equal values produce equal content hashes; distinct values
+    /// (overwhelmingly) produce distinct hashes.
+    #[test]
+    fn iac_type_hash_distinguishes_scalars(
+        (a, b) in (
+            prop_oneof![
+                Just(IacType::String),
+                Just(IacType::Integer),
+                Just(IacType::Boolean),
+                Just(IacType::Any),
+                Just(IacType::Numeric),
+                Just(IacType::Float),
+            ],
+            prop_oneof![
+                Just(IacType::String),
+                Just(IacType::Integer),
+                Just(IacType::Boolean),
+                Just(IacType::Any),
+                Just(IacType::Numeric),
+                Just(IacType::Float),
+            ],
+        )
+    ) {
+        if a == b {
+            prop_assert_eq!(a.content_hash(), b.content_hash());
+        } else {
+            prop_assert_ne!(a.content_hash(), b.content_hash());
+        }
+    }
+
+    /// Content hash survives an emit→parse→hash round trip.
+    #[test]
+    fn iac_type_content_hash_survives_text_boundary(ty in arb_iac_type()) {
+        let hash_a = ty.content_hash();
+        let text = ty.to_sexpr().emit();
+        let reparsed = SExpr::parse(&text).unwrap();
+        let hash_b = reparsed.content_hash();
+        prop_assert_eq!(hash_a, hash_b);
+    }
+
     /// Parens are balanced in any emitted IacType.
     #[test]
     fn iac_type_parens_balanced(ty in arb_iac_type()) {

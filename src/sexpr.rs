@@ -55,6 +55,41 @@
 
 use std::fmt;
 
+/// BLAKE3 content hash over a canonical emission.
+///
+/// Displayed as lowercase hex (64 chars). Constructed only via
+/// [`SExpr::content_hash`] to guarantee the hash always corresponds to
+/// canonical emission bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ContentHash(pub [u8; 32]);
+
+impl ContentHash {
+    /// Lowercase hex string (64 chars).
+    #[must_use]
+    pub fn to_hex(&self) -> String {
+        let mut out = String::with_capacity(64);
+        for b in &self.0 {
+            out.push(hex_nibble(b >> 4));
+            out.push(hex_nibble(b & 0xF));
+        }
+        out
+    }
+}
+
+impl fmt::Display for ContentHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_hex())
+    }
+}
+
+fn hex_nibble(n: u8) -> char {
+    match n {
+        0..=9 => (b'0' + n) as char,
+        10..=15 => (b'a' + (n - 10)) as char,
+        _ => unreachable!("nibble must be 0..=15"),
+    }
+}
+
 /// Canonical s-expression value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SExpr {
@@ -107,6 +142,26 @@ impl SExpr {
         let mut out = String::new();
         self.emit_into(&mut out);
         out
+    }
+
+    /// Compute a BLAKE3 content hash over the canonical emission.
+    ///
+    /// This is the content address of the value: structurally-equal
+    /// values produce byte-equal emissions (proven by the round-trip
+    /// proptests) and therefore equal hashes. Structurally-different
+    /// values produce different emissions and (overwhelmingly) different
+    /// hashes.
+    ///
+    /// The hash is suitable for:
+    /// - **Cache keys** — skip regeneration when IR hasn't changed
+    /// - **Attestation** — pair with tameshi Merkle trees at leaf level
+    /// - **Audit** — shinryu rows carry the hash for historical
+    ///   correlation without storing the full sexpr
+    #[must_use]
+    pub fn content_hash(&self) -> ContentHash {
+        let emitted = self.emit();
+        let hash = blake3::hash(emitted.as_bytes());
+        ContentHash(*hash.as_bytes())
     }
 
     fn emit_into(&self, out: &mut String) {
@@ -309,6 +364,15 @@ fn read_atom(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<SExpr, 
 /// `T::from_sexpr(&x.to_sexpr())? == x`.
 pub trait ToSExpr {
     fn to_sexpr(&self) -> SExpr;
+
+    /// Convenience: content hash of this value's canonical emission.
+    ///
+    /// Equivalent to `self.to_sexpr().content_hash()`. Every type that
+    /// implements `ToSExpr` gets a stable content address for free.
+    #[must_use]
+    fn content_hash(&self) -> ContentHash {
+        self.to_sexpr().content_hash()
+    }
 }
 
 /// Parse an SExpr back into this value.
@@ -662,5 +726,63 @@ mod tests {
     fn float_and_integer_distinguished_on_parse() {
         assert_eq!(SExpr::parse("1").unwrap(), SExpr::Integer(1));
         assert_eq!(SExpr::parse("1.0").unwrap(), SExpr::Float(1.0));
+    }
+
+    // ── Content addressing ────────────────────────────────────
+
+    #[test]
+    fn content_hash_is_64_hex_chars() {
+        let h = SExpr::Integer(42).content_hash();
+        assert_eq!(h.to_hex().len(), 64);
+        assert!(h.to_hex().chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(h.to_string(), h.to_hex());
+    }
+
+    #[test]
+    fn content_hash_is_deterministic() {
+        let s = SExpr::List(vec![
+            SExpr::Symbol("foo".into()),
+            SExpr::Integer(1),
+            SExpr::String("bar".into()),
+        ]);
+        assert_eq!(s.content_hash(), s.content_hash());
+    }
+
+    #[test]
+    fn content_hash_differs_for_different_values() {
+        let a = SExpr::Integer(1).content_hash();
+        let b = SExpr::Integer(2).content_hash();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn content_hash_matches_emission_hash() {
+        // The hash is defined as BLAKE3 over canonical emission, so
+        // computing it independently via the same path must agree.
+        let s = SExpr::String("hello world".into());
+        let expected = {
+            let emitted = s.emit();
+            let h = blake3::hash(emitted.as_bytes());
+            ContentHash(*h.as_bytes())
+        };
+        assert_eq!(s.content_hash(), expected);
+    }
+
+    #[test]
+    fn to_sexpr_blanket_content_hash() {
+        // String implements ToSExpr; the blanket content_hash must
+        // equal the raw sexpr form's content_hash.
+        let s = "hello".to_string();
+        assert_eq!(s.content_hash(), s.to_sexpr().content_hash());
+    }
+
+    #[test]
+    fn content_hash_stable_across_clones() {
+        let s = SExpr::List(vec![
+            SExpr::Symbol("x".into()),
+            SExpr::Integer(42),
+        ]);
+        let clone = s.clone();
+        assert_eq!(s.content_hash(), clone.content_hash());
     }
 }
