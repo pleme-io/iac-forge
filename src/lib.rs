@@ -12,6 +12,10 @@ pub mod error;
 pub mod ir;
 /// Structure-preserving maps with composable proofs.
 pub mod morphism;
+/// Canonical s-expression interchange for IR values.
+pub mod sexpr;
+/// `ToSExpr` / `FromSExpr` impls for the IR value types.
+mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
 pub mod naming;
 /// User-extensible IR transforms with a minimal s-expr script surface.
