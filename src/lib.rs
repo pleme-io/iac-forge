@@ -16,6 +16,8 @@ pub mod morphism;
 pub mod sexpr;
 /// Semantic diff over sexpr trees.
 pub mod sexpr_diff;
+/// Remediation harness: bounded transform application with invariants.
+pub mod remediation;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
