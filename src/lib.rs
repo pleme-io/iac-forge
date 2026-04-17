@@ -10,6 +10,8 @@ pub mod backend;
 pub mod error;
 /// Platform-independent intermediate representation (IR).
 pub mod ir;
+/// Structure-preserving maps with composable proofs.
+pub mod morphism;
 /// Naming convention helpers (snake_case, camelCase, etc.).
 pub mod naming;
 /// Resolver: spec + `OpenAPI` → IR.
