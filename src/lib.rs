@@ -14,6 +14,8 @@ pub mod ir;
 pub mod morphism;
 /// Naming convention helpers (snake_case, camelCase, etc.).
 pub mod naming;
+/// User-extensible IR transforms with a minimal s-expr script surface.
+pub mod transform;
 /// Resolver: spec + `OpenAPI` → IR.
 pub mod resolve;
 /// TOML spec types for resources, data sources, and providers.
