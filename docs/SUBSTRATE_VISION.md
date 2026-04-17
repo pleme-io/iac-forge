@@ -273,18 +273,82 @@ The explicit new work:
 
 **~6 weeks to a skeleton substrate.** Everything else builds on that.
 
+## Rust defines the axioms; Lisp composes them
+
+The pattern inside every DSL in this substrate: **Rust defines the
+closed set of primitives for a domain — the axioms that cannot be
+changed — and Lisp composes them freely via macros.**
+
+This session already has three proof-of-concepts of the pattern:
+
+| DSL domain | Rust axioms (closed) | Lisp composition |
+|------------|---------------------|------------------|
+| Remediation | `ResourceOp` enum: 5 variants (`SetDescription`, `SetCategory`, `MarkSensitive`, `AddOptionalString`, `RemoveAttribute`) | `transform::script` — free composition of the five atoms |
+| Compliance | `Pattern` enum (9 variants) + `Rule` enum (3 variants) | Policy authors compose patterns + rules without inventing new ones |
+| IR types | `IacType` enum (11 variants, `#[non_exhaustive]`) | Every backend projects into its own target without modifying the IR |
+
+The property this gives each DSL:
+
+1. **Bounded axiom set.** Users cannot invent primitives. A malformed
+   `(nuke-everything "x")` fails at parse time — there is no such op.
+   Every valid program uses only the Rust enum variants.
+2. **Compositional freedom.** Macros, lambdas, sequences — Lisp gives
+   the full lambda calculus over the axioms. You can express anything
+   that's a composition of primitives; you cannot express anything
+   outside them.
+3. **Rust-proven edges.** Each primitive variant carries its invariants
+   in the Rust code. Adding the variant means adding its proof. The
+   axiom set grows only via code review at the Rust layer.
+4. **Domain specificity.** Different DSLs get different closed sets. A
+   tensor DSL's axioms are `MatMul`, `Softmax`, `LayerNorm` etc. A
+   compliance DSL's axioms are `RequireField`, `ForbidPath` etc. Each
+   DSL is irreducible to the others; each has its own proven algebra.
+
+This is the answer to Paul Graham's **Lisp curse**: "too-powerful a
+language means everyone builds their own framework." The
+curse is broken when the primitives are **closed at the Rust layer**.
+Users still compose freely, but the composition ground is fixed. Two
+consumers of the same DSL agree on what the words mean, because the
+words are an enum.
+
+Applied across the substrate:
+
+- A **tensor DSL** whose axioms are ~15 UOps (tinygrad-small, proven
+  in Rust) + Lisp composition for networks
+- A **compliance DSL** whose axioms are `Pattern`/`Rule` variants
+  (proven in Rust) + Lisp composition for policy documents
+- A **Kubernetes DSL** whose axioms are workload archetypes
+  (`mkHttpService`, `mkWorker`...proven in Rust via substrate) + Lisp
+  composition for deployment topologies
+- A **training-step DSL** whose axioms are pipeline stages
+  (`Promotion`/`Mutation`/`Stage`) + Lisp composition for training
+  loops
+
+Every DSL in the substrate follows this shape. Every DSL inherits the
+WASM sandbox, the content hash, the sui cache, the K8s scheduler —
+because they all compile through the same substrate path.
+
+**This is the sweet spot between rigid statically-typed languages and
+fully-dynamic Lisp:** Rust pins the ground truth, Lisp moves freely
+above it, and the line between them is the enum boundary. You get
+"invalid states unrepresentable" AND "code-as-data" in the same
+system.
+
 ## The closing claim
 
 This is the ultimate expression of the pleme-io doctrine: **types
 that make invalid states unrepresentable + proofs that compose + hashes
 that identify anything + rendering that's a morphism + execution that
-evaporates**. The substrate is what you get when you stop treating
-memory as persistent and start treating it as the reified form of a
-canonical sexpr identity.
+evaporates + Rust axioms with Lisp composition above them**. The
+substrate is what you get when you stop treating memory as persistent
+and start treating it as the reified form of a canonical sexpr
+identity.
 
-It's programmable, verifiable, portable, ephemeral, and provably
-correct. **It's what a computing platform looks like when "types are
-what's real" is taken seriously at every layer.**
+It's programmable, verifiable, portable, ephemeral, provably correct,
+and the axiom set is frozen per DSL while composition stays free.
+**It's what a computing platform looks like when "types are what's
+real" is taken seriously at every layer — and the boundary between
+rigid and flexible is made explicit and enforceable.**
 
 ---
 
