@@ -402,6 +402,37 @@ impl ToSExpr for bool {
     }
 }
 
+impl ToSExpr for i64 {
+    fn to_sexpr(&self) -> SExpr {
+        SExpr::Integer(*self)
+    }
+}
+
+impl FromSExpr for i64 {
+    fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
+        match s {
+            SExpr::Integer(i) => Ok(*i),
+            other => Err(SExprError::Shape(format!("expected integer, got {other:?}"))),
+        }
+    }
+}
+
+impl ToSExpr for f64 {
+    fn to_sexpr(&self) -> SExpr {
+        SExpr::Float(*self)
+    }
+}
+
+impl FromSExpr for f64 {
+    fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
+        match s {
+            SExpr::Float(f) => Ok(*f),
+            SExpr::Integer(i) => Ok(*i as f64), // widen int to float
+            other => Err(SExprError::Shape(format!("expected float, got {other:?}"))),
+        }
+    }
+}
+
 impl FromSExpr for bool {
     fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
         match s {

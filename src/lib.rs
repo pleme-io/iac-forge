@@ -33,6 +33,8 @@ pub mod nix_transform;
 /// Rust-level sui integration — in-process Nix transforms.
 #[cfg(feature = "sui-eval")]
 pub mod sui_transform;
+/// Pipelines of representation with promotions and mutations + Trace.
+pub mod pipeline;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
