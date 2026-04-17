@@ -2,6 +2,8 @@
 //!
 //! Use these helpers in backend tests to avoid duplicating test data construction.
 
+pub mod fixtures;
+
 use std::collections::BTreeMap;
 
 use crate::ir::{
