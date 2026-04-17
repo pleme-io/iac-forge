@@ -14,6 +14,8 @@ pub mod ir;
 pub mod morphism;
 /// Canonical s-expression interchange for IR values.
 pub mod sexpr;
+/// Semantic diff over sexpr trees.
+pub mod sexpr_diff;
 /// `ToSExpr` / `FromSExpr` impls for the IR value types.
 mod sexpr_ir;
 /// Naming convention helpers (snake_case, camelCase, etc.).
