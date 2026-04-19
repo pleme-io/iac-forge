@@ -37,11 +37,7 @@ fn emitted_fod_is_evaluable_by_nix() {
     // expression parses and type-checks). Using --dry-run keeps it
     // cheap.
     let out = Command::new("nix-instantiate")
-        .args([
-            "--extra-experimental-features",
-            "blake3-hashes",
-            "--parse",
-        ])
+        .args(["--extra-experimental-features", "blake3-hashes", "--parse"])
         .arg(&nix_path)
         .output();
 
@@ -78,7 +74,10 @@ fn fod_hash_matches_blake3_of_embedded_sexpr() {
 
     let expected_hex = r.content_hash().to_hex();
     assert_eq!(fod.source_hash, expected_hex);
-    assert!(fod.content.contains(&format!("outputHash = \"{expected_hex}\"")));
+    assert!(
+        fod.content
+            .contains(&format!("outputHash = \"{expected_hex}\""))
+    );
 
     let sexpr_text = r.to_sexpr().emit();
     let recomputed = blake3::hash(sexpr_text.as_bytes());

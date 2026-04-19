@@ -25,9 +25,7 @@
 
 use crate::backend::{ArtifactKind, Backend, GeneratedArtifact, NamingConvention};
 use crate::error::IacForgeError;
-use crate::ir::{
-    IacAttribute, IacDataSource, IacProvider, IacResource, IacType, IdentityInfo,
-};
+use crate::ir::{IacAttribute, IacDataSource, IacProvider, IacResource, IacType, IdentityInfo};
 use crate::nix::NixValue;
 use std::collections::BTreeMap;
 
@@ -95,9 +93,9 @@ fn iac_type_to_nix(ty: &IacType) -> NixValue {
             ),
             ("underlying", iac_type_to_nix(underlying)),
         ]),
-        other => panic!(
-            "unsupported IacType variant in NixBackend: {other:?} — add an explicit mapping"
-        ),
+        other => {
+            panic!("unsupported IacType variant in NixBackend: {other:?} — add an explicit mapping")
+        }
     }
 }
 
@@ -262,10 +260,7 @@ fn render(value: &NixValue) -> String {
 /// Since `outputHash` is `content_hash`, the store path is *exactly*
 /// the IR's identity in Nix terms — one-to-one correspondence between
 /// our ContentHash and Nix's derivation identity.
-pub fn emit_fod(
-    resource: &IacResource,
-    provider: &IacProvider,
-) -> GeneratedArtifact {
+pub fn emit_fod(resource: &IacResource, provider: &IacProvider) -> GeneratedArtifact {
     use crate::sexpr::ToSExpr;
 
     let sexpr_text = resource.to_sexpr().emit();
@@ -300,17 +295,11 @@ pub fn emit_fod(
     );
 
     GeneratedArtifact {
-        path: format!(
-            "derivations/{}_{}.nix",
-            provider.name, resource.name
-        ),
+        path: format!("derivations/{}_{}.nix", provider.name, resource.name),
         content,
         kind: ArtifactKind::Metadata,
         source_hash: hash_hex,
-        morphism_chain: vec![
-            "Backend::nix".to_string(),
-            "emit_fod".to_string(),
-        ],
+        morphism_chain: vec!["Backend::nix".to_string(), "emit_fod".to_string()],
     }
 }
 
@@ -331,10 +320,7 @@ impl Backend for NixBackend {
         provider: &IacProvider,
     ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
         let content = render(&resource_to_nix(resource));
-        let path = format!(
-            "resources/{}_{}.nix",
-            provider.name, resource.name,
-        );
+        let path = format!("resources/{}_{}.nix", provider.name, resource.name,);
         Ok(vec![GeneratedArtifact::new(
             path,
             content,
@@ -409,7 +395,7 @@ mod tests {
     use super::*;
     use crate::morphism::{Morphism, ProvenMorphism, ResourceInput};
     use crate::sexpr::ToSExpr;
-    use crate::testing::{test_provider, test_resource, TestAttributeBuilder};
+    use crate::testing::{TestAttributeBuilder, test_provider, test_resource};
 
     fn backend() -> NixBackend {
         NixBackend
@@ -503,7 +489,10 @@ mod tests {
     fn nix_backend_inherits_provenance_via_blanket_impl() {
         let r = test_resource("widget");
         let p = test_provider("acme");
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let artifacts = <NixBackend as Morphism<_, _>>::apply(&NixBackend, &input);
         assert_eq!(artifacts.len(), 1);
         assert_eq!(artifacts[0].source_hash, r.content_hash().to_hex());
@@ -515,13 +504,13 @@ mod tests {
     fn nix_backend_passes_blanket_invariants() {
         let r = test_resource("widget");
         let p = test_provider("acme");
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let artifacts = <NixBackend as Morphism<_, _>>::apply(&NixBackend, &input);
-        let violations = <NixBackend as ProvenMorphism<_, _>>::check_invariants(
-            &NixBackend,
-            &input,
-            &artifacts,
-        );
+        let violations =
+            <NixBackend as ProvenMorphism<_, _>>::check_invariants(&NixBackend, &input, &artifacts);
         assert!(
             violations.is_empty(),
             "blanket invariants must hold: {violations:?}",
@@ -543,11 +532,7 @@ mod tests {
     fn nested_attribute_type_is_correct_shape() {
         let mut r = test_resource("thing");
         r.attributes = vec![
-            TestAttributeBuilder::new(
-                "tags",
-                IacType::List(Box::new(IacType::String)),
-            )
-            .build(),
+            TestAttributeBuilder::new("tags", IacType::List(Box::new(IacType::String))).build(),
         ];
         let p = test_provider("acme");
         let content = &backend().generate_resource(&r, &p).unwrap()[0].content;
@@ -561,7 +546,9 @@ mod tests {
     fn numeric_iac_type_renders_as_numeric() {
         let mut r = test_resource("thing");
         r.attributes = vec![
-            TestAttributeBuilder::new("count", IacType::Numeric).required().build(),
+            TestAttributeBuilder::new("count", IacType::Numeric)
+                .required()
+                .build(),
         ];
         let p = test_provider("acme");
         let content = &backend().generate_resource(&r, &p).unwrap()[0].content;
@@ -577,7 +564,8 @@ mod tests {
         let expected_hex = r.content_hash().to_hex();
         let fod = emit_fod(&r, &p);
         assert!(
-            fod.content.contains(&format!("outputHash = \"{expected_hex}\""))
+            fod.content
+                .contains(&format!("outputHash = \"{expected_hex}\""))
         );
     }
 

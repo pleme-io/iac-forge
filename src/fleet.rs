@@ -26,9 +26,7 @@
 use std::collections::BTreeMap;
 
 use crate::ir::IacResource;
-use crate::sexpr::{
-    parse_struct, struct_expr, take_field, FromSExpr, SExpr, SExprError, ToSExpr,
-};
+use crate::sexpr::{FromSExpr, SExpr, SExprError, ToSExpr, parse_struct, struct_expr, take_field};
 
 /// A named collection of `IacResource` values with a stable canonical
 /// order (by member name).
@@ -86,9 +84,7 @@ impl Fleet {
     /// Backend→Morphism impl records as `source_hash`).
     #[must_use]
     pub fn member_hash(&self, name: &str) -> Option<String> {
-        self.members
-            .get(name)
-            .map(|r| r.content_hash().to_hex())
+        self.members.get(name).map(|r| r.content_hash().to_hex())
     }
 
     /// Member names in canonical (sorted) order.
@@ -108,10 +104,7 @@ impl ToSExpr for Fleet {
             .map(|(name, resource)| {
                 struct_expr(
                     "member",
-                    vec![
-                        ("name", name.to_sexpr()),
-                        ("resource", resource.to_sexpr()),
-                    ],
+                    vec![("name", name.to_sexpr()), ("resource", resource.to_sexpr())],
                 )
             })
             .collect();
@@ -134,9 +127,9 @@ impl FromSExpr for Fleet {
         let name = String::from_sexpr(take_field(&f, "name")?)?;
         let members_sexpr = take_field(&f, "members")?;
         let items = members_sexpr.as_list()?;
-        let (head, rest) = items.split_first().ok_or_else(|| {
-            SExprError::Shape("fleet members must be a (list …) form".into())
-        })?;
+        let (head, rest) = items
+            .split_first()
+            .ok_or_else(|| SExprError::Shape("fleet members must be a (list …) form".into()))?;
         let tag = head.as_symbol()?;
         if tag != "list" {
             return Err(SExprError::Shape(format!(
@@ -338,8 +331,8 @@ mod tests {
 
     #[test]
     fn from_sexpr_rejects_wrong_top_level() {
-        let err = Fleet::from_sexpr(&SExpr::parse("(resource (:name \"x\"))").unwrap())
-            .unwrap_err();
+        let err =
+            Fleet::from_sexpr(&SExpr::parse("(resource (:name \"x\"))").unwrap()).unwrap_err();
         assert!(matches!(err, SExprError::Shape(_)));
     }
 

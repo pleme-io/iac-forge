@@ -155,11 +155,7 @@ impl RenderCache {
     }
 
     /// Remove a specific entry. Returns whether it was present.
-    pub fn invalidate<B: Backend>(
-        &mut self,
-        backend: &B,
-        input: &ResourceInput<'_>,
-    ) -> bool {
+    pub fn invalidate<B: Backend>(&mut self, backend: &B, input: &ResourceInput<'_>) -> bool {
         self.entries
             .remove(&CacheKey::for_resource(backend, input))
             .is_some()
@@ -180,7 +176,9 @@ mod tests {
     }
     impl CountingBackend {
         fn new() -> Self {
-            Self { calls: std::cell::Cell::new(0) }
+            Self {
+                calls: std::cell::Cell::new(0),
+            }
         }
     }
     struct PlainNaming;
@@ -247,7 +245,10 @@ mod tests {
     #[test]
     fn hit_after_miss_returns_same_artifacts() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
 
@@ -259,7 +260,10 @@ mod tests {
     #[test]
     fn cache_short_circuits_backend_after_first_call() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
 
@@ -276,7 +280,10 @@ mod tests {
     #[test]
     fn stats_track_hits_and_misses() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
 
@@ -307,11 +314,17 @@ mod tests {
 
         cache.render(
             &backend,
-            &ResourceInput { resource: &r1, provider: &p },
+            &ResourceInput {
+                resource: &r1,
+                provider: &p,
+            },
         );
         cache.render(
             &backend,
-            &ResourceInput { resource: &r2, provider: &p },
+            &ResourceInput {
+                resource: &r2,
+                provider: &p,
+            },
         );
         assert_eq!(backend.calls.get(), 2);
         assert_eq!(cache.len(), 2);
@@ -329,11 +342,17 @@ mod tests {
 
         cache.render(
             &backend,
-            &ResourceInput { resource: &r_a, provider: &p },
+            &ResourceInput {
+                resource: &r_a,
+                provider: &p,
+            },
         );
         cache.render(
             &backend,
-            &ResourceInput { resource: &r_b, provider: &p },
+            &ResourceInput {
+                resource: &r_b,
+                provider: &p,
+            },
         );
         assert_eq!(
             backend.calls.get(),
@@ -347,7 +366,10 @@ mod tests {
     #[test]
     fn invalidate_removes_specific_entry() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
 
@@ -364,7 +386,10 @@ mod tests {
     #[test]
     fn invalidate_reports_false_on_missing_entry() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
         assert!(!cache.invalidate(&backend, &input));
@@ -380,11 +405,17 @@ mod tests {
 
         cache.render(
             &backend,
-            &ResourceInput { resource: &r1, provider: &p },
+            &ResourceInput {
+                resource: &r1,
+                provider: &p,
+            },
         );
         cache.render(
             &backend,
-            &ResourceInput { resource: &r2, provider: &p },
+            &ResourceInput {
+                resource: &r2,
+                provider: &p,
+            },
         );
         assert_eq!(cache.len(), 2);
         cache.clear();
@@ -396,7 +427,10 @@ mod tests {
     #[test]
     fn cache_key_contains_schema_version_and_platform() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let key = CacheKey::for_resource(&backend, &input);
         assert_eq!(key.schema_version, SCHEMA_VERSION);
@@ -410,7 +444,10 @@ mod tests {
         // populated on the first call (otherwise attestation would
         // degrade to "unknown origin" on the second hit).
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let backend = CountingBackend::new();
         let mut cache = RenderCache::new();
 
@@ -442,15 +479,37 @@ mod tests {
                 ArtifactKind::Resource,
             )])
         }
-        fn generate_data_source(&self, _d: &IacDataSource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
-        fn generate_provider(&self, _p: &IacProvider, _r: &[IacResource], _d: &[IacDataSource]) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
-        fn generate_test(&self, _r: &IacResource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
+        fn generate_data_source(
+            &self,
+            _d: &IacDataSource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_provider(
+            &self,
+            _p: &IacProvider,
+            _r: &[IacResource],
+            _d: &[IacDataSource],
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
+        fn generate_test(
+            &self,
+            _r: &IacResource,
+            _p: &IacProvider,
+        ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+            Ok(vec![])
+        }
     }
 
     #[test]
     fn different_backends_do_not_share_cache_entries() {
         let (r, p) = fixture();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let counting = CountingBackend::new();
         let other = OtherBackend;
         let mut cache = RenderCache::new();

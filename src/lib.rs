@@ -8,45 +8,45 @@
 pub mod backend;
 /// Error types for the iac-forge pipeline.
 pub mod error;
+/// Fleet: named collection of IacResource values with composite hashing.
+pub mod fleet;
 /// Platform-independent intermediate representation (IR).
 pub mod ir;
 /// Structure-preserving maps with composable proofs.
 pub mod morphism;
-/// Canonical s-expression interchange for IR values.
-pub mod sexpr;
-/// Semantic diff over sexpr trees.
-pub mod sexpr_diff;
-/// Remediation harness: bounded transform application with invariants.
-pub mod remediation;
-/// Content-addressed cache over backend rendering.
-pub mod render_cache;
-/// Fleet: named collection of IacResource values with composite hashing.
-pub mod fleet;
-/// Policy-as-code over sexpr patterns.
-pub mod policy;
+/// Naming convention helpers (snake_case, camelCase, etc.).
+pub mod naming;
 /// Sexpr ↔ Nix AST bridge (NixValue + round-trip to SExpr).
 pub mod nix;
 /// Nix backend: `Backend` impl rendering IR as Nix attribute sets.
 pub mod nix_backend;
 /// Nix-powered IR transforms (external evaluator: nix-instantiate or sui).
 pub mod nix_transform;
+/// Pipelines of representation with promotions and mutations + Trace.
+pub mod pipeline;
+/// Policy-as-code over sexpr patterns.
+pub mod policy;
+/// Remediation harness: bounded transform application with invariants.
+pub mod remediation;
+/// Content-addressed cache over backend rendering.
+pub mod render_cache;
+/// Resolver: spec + `OpenAPI` → IR.
+pub mod resolve;
+/// Canonical s-expression interchange for IR values.
+pub mod sexpr;
+/// Semantic diff over sexpr trees.
+pub mod sexpr_diff;
+/// `ToSExpr` / `FromSExpr` impls for the IR value types.
+mod sexpr_ir;
+/// TOML spec types for resources, data sources, and providers.
+pub mod spec;
 /// Rust-level sui integration — in-process Nix transforms.
 #[cfg(feature = "sui-eval")]
 pub mod sui_transform;
-/// Pipelines of representation with promotions and mutations + Trace.
-pub mod pipeline;
-/// `ToSExpr` / `FromSExpr` impls for the IR value types.
-mod sexpr_ir;
-/// Naming convention helpers (snake_case, camelCase, etc.).
-pub mod naming;
-/// User-extensible IR transforms with a minimal s-expr script surface.
-pub mod transform;
-/// Resolver: spec + `OpenAPI` → IR.
-pub mod resolve;
-/// TOML spec types for resources, data sources, and providers.
-pub mod spec;
 /// Shared test fixtures for backend tests.
 pub mod testing;
+/// User-extensible IR transforms with a minimal s-expr script surface.
+pub mod transform;
 /// Type mapping from `OpenAPI` / takumi types to `IacType`.
 pub mod type_map;
 
@@ -66,5 +66,7 @@ pub use spec::{
     IdentityConfig, ProviderDefaults, ProviderMeta, ProviderSpec, ReadMapping, ResourceMeta,
     ResourceSpec,
 };
-pub use testing::{TestAttributeBuilder, test_data_source, test_provider, test_resource, test_resource_with_type};
+pub use testing::{
+    TestAttributeBuilder, test_data_source, test_provider, test_resource, test_resource_with_type,
+};
 pub use type_map::{apply_enum_constraint, is_valid_type_override, openapi_to_iac};

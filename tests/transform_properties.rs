@@ -13,7 +13,7 @@
 use proptest::prelude::*;
 
 use iac_forge::ir::IacType;
-use iac_forge::testing::{test_resource, TestAttributeBuilder};
+use iac_forge::testing::{TestAttributeBuilder, test_resource};
 use iac_forge::transform::ops::ResourceOp;
 use iac_forge::transform::script;
 use iac_forge::transform::{ComposeTransforms, Identity, Transform};
@@ -31,7 +31,9 @@ fn arb_description() -> impl Strategy<Value = String> {
 fn base_resource() -> iac_forge::ir::IacResource {
     let mut r = test_resource("widget");
     r.attributes = vec![
-        TestAttributeBuilder::new("name", IacType::String).required().build(),
+        TestAttributeBuilder::new("name", IacType::String)
+            .required()
+            .build(),
         TestAttributeBuilder::new("value", IacType::String).build(),
         TestAttributeBuilder::new("tags", IacType::List(Box::new(IacType::String))).build(),
     ];

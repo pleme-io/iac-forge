@@ -20,9 +20,9 @@
 use proptest::prelude::*;
 
 use iac_forge::ir::{IacAttribute, IacResource, IacType};
-use iac_forge::remediation::{apply_proposal, outcome_sexpr, Proposal};
+use iac_forge::remediation::{Proposal, apply_proposal, outcome_sexpr};
 use iac_forge::sexpr::{SExpr, ToSExpr};
-use iac_forge::testing::{test_resource, TestAttributeBuilder};
+use iac_forge::testing::{TestAttributeBuilder, test_resource};
 
 // ── Strategies ──────────────────────────────────────────────────────
 
@@ -59,9 +59,7 @@ fn arb_description() -> impl Strategy<Value = String> {
 /// of the resource's attribute names. The `attr_names` slice ensures
 /// we only reference names that exist so `MarkSensitive` isn't a no-op
 /// by accident.
-fn arb_script_for(
-    attr_names: Vec<String>,
-) -> impl Strategy<Value = (String, usize)> {
+fn arb_script_for(attr_names: Vec<String>) -> impl Strategy<Value = (String, usize)> {
     // Pick 1-3 ops.
     (
         1..4_usize,
@@ -131,10 +129,12 @@ proptest! {
 
 fn arb_case() -> impl Strategy<Value = (IacResource, String, usize)> {
     arb_resource().prop_flat_map(|r| {
-        let names: Vec<String> =
-            r.attributes.iter().map(|a| a.canonical_name.clone()).collect();
-        (Just(r), arb_script_for(names))
-            .prop_map(|(r, (s, n))| (r, s, n))
+        let names: Vec<String> = r
+            .attributes
+            .iter()
+            .map(|a| a.canonical_name.clone())
+            .collect();
+        (Just(r), arb_script_for(names)).prop_map(|(r, (s, n))| (r, s, n))
     })
 }
 
@@ -233,25 +233,22 @@ proptest! {
 /// mark-sensitive, add-optional-string — each is idempotent by
 /// construction; remove-attribute is also idempotent once the target
 /// is gone).
-fn arb_idempotent_script(
-    attr_names: Vec<String>,
-) -> impl Strategy<Value = String> {
-    (
-        arb_description(),
-        prop::sample::select(attr_names),
-    )
-        .prop_map(|(desc, target)| {
-            format!(
-                r#"(set-description "{desc}")
+fn arb_idempotent_script(attr_names: Vec<String>) -> impl Strategy<Value = String> {
+    (arb_description(), prop::sample::select(attr_names)).prop_map(|(desc, target)| {
+        format!(
+            r#"(set-description "{desc}")
                    (mark-sensitive "{target}")"#,
-            )
-        })
+        )
+    })
 }
 
 fn arb_idempotent_case() -> impl Strategy<Value = (IacResource, String)> {
     arb_resource().prop_flat_map(|r| {
-        let names: Vec<String> =
-            r.attributes.iter().map(|a| a.canonical_name.clone()).collect();
+        let names: Vec<String> = r
+            .attributes
+            .iter()
+            .map(|a| a.canonical_name.clone())
+            .collect();
         (Just(r), arb_idempotent_script(names))
     })
 }
@@ -284,7 +281,9 @@ fn cross_check_no_script_no_changes() {
     // Applying it must leave the resource unchanged.
     let mut r = test_resource("widget");
     r.attributes = vec![
-        TestAttributeBuilder::new("x", IacType::String).required().build(),
+        TestAttributeBuilder::new("x", IacType::String)
+            .required()
+            .build(),
     ];
     let p = Proposal::new("noop", "");
     // Empty input — parse returns Vec::new(), apply is a no-op.

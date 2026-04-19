@@ -30,9 +30,9 @@
 
 use crate::ir::IacResource;
 use crate::sexpr::{SExpr, SExprError, ToSExpr};
-use crate::sexpr_diff::{diff, Edit};
+use crate::sexpr_diff::{Edit, diff};
 use crate::transform::ops::ResourceOp;
-use crate::transform::{script, Transform};
+use crate::transform::{Transform, script};
 
 /// A remediation proposal — script text plus the human-readable reason
 /// a caller wants to apply it.
@@ -156,8 +156,7 @@ pub fn apply_proposal_with_invariants(
     proposal: &Proposal,
     invariants: &[Invariant],
 ) -> Result<Outcome, RemediationError> {
-    let ops = script::parse(&proposal.script)
-        .map_err(RemediationError::ScriptParse)?;
+    let ops = script::parse(&proposal.script).map_err(RemediationError::ScriptParse)?;
 
     let before = resource.clone();
     let before_sexpr = before.to_sexpr();
@@ -221,12 +220,14 @@ pub fn outcome_sexpr(o: &Outcome) -> SExpr {
 mod tests {
     use super::*;
     use crate::ir::IacType;
-    use crate::testing::{test_resource, TestAttributeBuilder};
+    use crate::testing::{TestAttributeBuilder, test_resource};
 
     fn sample() -> IacResource {
         let mut r = test_resource("widget");
         r.attributes = vec![
-            TestAttributeBuilder::new("name", IacType::String).required().build(),
+            TestAttributeBuilder::new("name", IacType::String)
+                .required()
+                .build(),
             TestAttributeBuilder::new("database_url", IacType::String).build(),
         ];
         r
@@ -339,8 +340,7 @@ mod tests {
         // A proposal that does nothing (wrong field name) leaves
         // database_url unflagged — the invariant should fire.
         let p = Proposal::new("wrong", r#"(mark-sensitive "other")"#);
-        let err =
-            apply_proposal_with_invariants(&r, &p, &[no_unsensitive_dburl]).unwrap_err();
+        let err = apply_proposal_with_invariants(&r, &p, &[no_unsensitive_dburl]).unwrap_err();
         match err {
             RemediationError::InvariantViolations(v) => {
                 assert_eq!(v.len(), 1);
@@ -393,7 +393,10 @@ mod tests {
     #[test]
     fn apply_proposal_is_deterministic() {
         let r = sample();
-        let p = Proposal::new("x", r#"(set-description "new") (mark-sensitive "database_url")"#);
+        let p = Proposal::new(
+            "x",
+            r#"(set-description "new") (mark-sensitive "database_url")"#,
+        );
         let o1 = apply_proposal(&r, &p).unwrap();
         let o2 = apply_proposal(&r, &p).unwrap();
         assert_eq!(o1.before_hash, o2.before_hash);

@@ -195,9 +195,7 @@ impl NixValue {
             Self::Null => SExpr::Nil,
             Self::Str(s) => SExpr::String(s.clone()),
             Self::Ident(name) => SExpr::Symbol(name.clone()),
-            Self::List(items) => {
-                SExpr::List(items.iter().map(Self::to_sexpr).collect())
-            }
+            Self::List(items) => SExpr::List(items.iter().map(Self::to_sexpr).collect()),
             Self::AttrSet(entries) => {
                 let head = entries
                     .get("head")
@@ -331,9 +329,9 @@ mod tests {
         // This is SEMANTIC equivalence, not BYTE equivalence: parsing
         // both sides via FromSExpr must produce identical IacAttribute
         // values even though the canonical text (and thus hash) differs.
+        use crate::ir::IacAttribute;
         use crate::sexpr::FromSExpr;
         use crate::testing::TestAttributeBuilder;
-        use crate::ir::IacAttribute;
 
         let attr = TestAttributeBuilder::new("x", IacType::String)
             .required()
@@ -388,18 +386,12 @@ mod tests {
         // Nix interpolates ${…}; a literal $ must be escaped or it
         // would be (harmlessly, but confusingly) treated as a regular
         // char. We escape defensively.
-        assert_eq!(
-            NixValue::Str("$HOME".into()).to_nix_expr(),
-            "\"\\$HOME\"",
-        );
+        assert_eq!(NixValue::Str("$HOME".into()).to_nix_expr(), "\"\\$HOME\"",);
     }
 
     #[test]
     fn string_escapes_quotes() {
-        assert_eq!(
-            NixValue::Str("a\"b".into()).to_nix_expr(),
-            "\"a\\\"b\"",
-        );
+        assert_eq!(NixValue::Str("a\"b".into()).to_nix_expr(), "\"a\\\"b\"",);
     }
 
     #[test]
@@ -410,22 +402,15 @@ mod tests {
     #[test]
     fn list_renders_space_separated() {
         assert_eq!(
-            NixValue::List(vec![
-                NixValue::Int(1),
-                NixValue::Int(2),
-                NixValue::Int(3),
-            ])
-            .to_nix_expr(),
+            NixValue::List(vec![NixValue::Int(1), NixValue::Int(2), NixValue::Int(3),])
+                .to_nix_expr(),
             "[1 2 3]",
         );
     }
 
     #[test]
     fn empty_attrset_renders() {
-        assert_eq!(
-            NixValue::AttrSet(BTreeMap::new()).to_nix_expr(),
-            "{}",
-        );
+        assert_eq!(NixValue::AttrSet(BTreeMap::new()).to_nix_expr(), "{}",);
     }
 
     #[test]
@@ -433,10 +418,7 @@ mod tests {
         let mut map = BTreeMap::new();
         map.insert("a".to_string(), NixValue::Int(1));
         map.insert("b".to_string(), NixValue::Int(2));
-        assert_eq!(
-            NixValue::AttrSet(map).to_nix_expr(),
-            "{ a = 1; b = 2; }",
-        );
+        assert_eq!(NixValue::AttrSet(map).to_nix_expr(), "{ a = 1; b = 2; }",);
     }
 
     #[test]

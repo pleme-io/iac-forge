@@ -128,10 +128,7 @@ pub fn load_resource_str(text: &str) -> Result<IacResource, FixtureError> {
 ///
 /// # Errors
 /// See [`save`].
-pub fn save_resource(
-    resource: &IacResource,
-    path: impl AsRef<Path>,
-) -> Result<(), FixtureError> {
+pub fn save_resource(resource: &IacResource, path: impl AsRef<Path>) -> Result<(), FixtureError> {
     save(resource, path)
 }
 
@@ -155,10 +152,7 @@ pub fn load_provider_str(text: &str) -> Result<IacProvider, FixtureError> {
 ///
 /// # Errors
 /// See [`save`].
-pub fn save_provider(
-    provider: &IacProvider,
-    path: impl AsRef<Path>,
-) -> Result<(), FixtureError> {
+pub fn save_provider(provider: &IacProvider, path: impl AsRef<Path>) -> Result<(), FixtureError> {
     save(provider, path)
 }
 
@@ -174,10 +168,7 @@ pub fn load_data_source(path: impl AsRef<Path>) -> Result<IacDataSource, Fixture
 ///
 /// # Errors
 /// See [`save`].
-pub fn save_data_source(
-    ds: &IacDataSource,
-    path: impl AsRef<Path>,
-) -> Result<(), FixtureError> {
+pub fn save_data_source(ds: &IacDataSource, path: impl AsRef<Path>) -> Result<(), FixtureError> {
     save(ds, path)
 }
 

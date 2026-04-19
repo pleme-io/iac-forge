@@ -95,9 +95,11 @@ pub fn test_resource_with_type(name: &str, attr_name: &str, iac_type: IacType) -
             delete_endpoint: format!("/delete-{name}"),
             delete_schema: format!("Delete{name}"),
         },
-        attributes: vec![TestAttributeBuilder::new(attr_name, iac_type)
-            .required()
-            .build()],
+        attributes: vec![
+            TestAttributeBuilder::new(attr_name, iac_type)
+                .required()
+                .build(),
+        ],
         identity: IdentityInfo {
             id_field: attr_name.to_string(),
             import_field: attr_name.to_string(),
@@ -312,10 +314,7 @@ mod tests {
         assert_eq!(tags_attr.canonical_name, "tags");
         assert!(!tags_attr.required);
         assert_eq!(tags_attr.read_path, Some("item_tags".to_string()));
-        assert_eq!(
-            tags_attr.iac_type,
-            IacType::List(Box::new(IacType::String))
-        );
+        assert_eq!(tags_attr.iac_type, IacType::List(Box::new(IacType::String)));
     }
 
     #[test]
@@ -410,11 +409,7 @@ mod tests {
 
     #[test]
     fn test_resource_with_type_list() {
-        let r = test_resource_with_type(
-            "tagged",
-            "tags",
-            IacType::List(Box::new(IacType::String)),
-        );
+        let r = test_resource_with_type("tagged", "tags", IacType::List(Box::new(IacType::String)));
         assert_eq!(
             r.attributes[0].iac_type,
             IacType::List(Box::new(IacType::String))
@@ -436,11 +431,8 @@ mod tests {
 
     #[test]
     fn test_resource_with_type_set() {
-        let r = test_resource_with_type(
-            "unique",
-            "items",
-            IacType::Set(Box::new(IacType::Integer)),
-        );
+        let r =
+            test_resource_with_type("unique", "items", IacType::Set(Box::new(IacType::Integer)));
         assert_eq!(
             r.attributes[0].iac_type,
             IacType::Set(Box::new(IacType::Integer))

@@ -120,9 +120,7 @@ impl Pattern {
             (Self::AnySymbol, SExpr::Symbol(_)) => true,
             (Self::AnyString, SExpr::String(_)) => true,
             (Self::AnyInteger, SExpr::Integer(_)) => true,
-            (Self::OneOf(opts), SExpr::Symbol(s) | SExpr::String(s)) => {
-                opts.iter().any(|o| o == s)
-            }
+            (Self::OneOf(opts), SExpr::Symbol(s) | SExpr::String(s)) => opts.iter().any(|o| o == s),
             (Self::Struct { head, fields }, SExpr::List(items)) => {
                 let Some((target_head, tail)) = items.split_first() else {
                     return false;
@@ -177,7 +175,9 @@ fn parse_keyword_fields(items: &[SExpr]) -> std::collections::BTreeMap<&str, &SE
         if pair.len() != 2 {
             continue;
         }
-        let SExpr::Symbol(key) = &pair[0] else { continue };
+        let SExpr::Symbol(key) = &pair[0] else {
+            continue;
+        };
         if let Some(rest) = key.strip_prefix(':') {
             out.insert(rest, &pair[1]);
         }
@@ -263,12 +263,7 @@ pub fn evaluate(policies: &[Policy], target: &SExpr) -> PolicyReport {
     PolicyReport { findings }
 }
 
-fn walk_and_eval(
-    policy: &Policy,
-    target: &SExpr,
-    path: &str,
-    out: &mut Vec<Finding>,
-) {
+fn walk_and_eval(policy: &Policy, target: &SExpr, path: &str, out: &mut Vec<Finding>) {
     if policy.pattern.matches(target) {
         eval_rule(policy, target, path, out);
     }
@@ -392,7 +387,7 @@ mod tests {
     use super::*;
     use crate::ir::IacType;
     use crate::sexpr::ToSExpr;
-    use crate::testing::{test_resource, TestAttributeBuilder};
+    use crate::testing::{TestAttributeBuilder, test_resource};
 
     // ── Pattern primitives ──────────────────────────────────
 
@@ -437,10 +432,7 @@ mod tests {
     fn struct_pattern_matches_partial_fields() {
         // (attribute (:sensitive true) (:immutable false)) should match
         // a pattern that only checks :sensitive.
-        let target = SExpr::parse(
-            "(attribute (:sensitive true) (:immutable false))",
-        )
-        .unwrap();
+        let target = SExpr::parse("(attribute (:sensitive true) (:immutable false))").unwrap();
         let p = Pattern::Struct {
             head: "attribute".into(),
             fields: vec![("sensitive".into(), Pattern::Bool(true))],
@@ -552,7 +544,9 @@ mod tests {
         // nothing, so no findings at all.
         let mut r = test_resource("x");
         r.attributes = vec![
-            TestAttributeBuilder::new("name", IacType::String).required().build(),
+            TestAttributeBuilder::new("name", IacType::String)
+                .required()
+                .build(),
         ];
         let report = evaluate(&[sensitive_must_be_immutable()], &r.to_sexpr());
         assert_eq!(report.total(), 0);
@@ -573,10 +567,12 @@ mod tests {
         let report = evaluate(&[policy], &r.to_sexpr());
         // test_resource builds 3 attributes by default.
         assert_eq!(report.violations().len(), 3);
-        assert!(report
-            .violations()
-            .iter()
-            .all(|v| v.reason == "no attributes allowed"));
+        assert!(
+            report
+                .violations()
+                .iter()
+                .all(|v| v.reason == "no attributes allowed")
+        );
     }
 
     #[test]

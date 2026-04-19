@@ -166,8 +166,7 @@ fn list_form(s: &SExpr) -> Option<&[SExpr]> {
 
 fn is_keyword_pair(items: &[SExpr]) -> bool {
     // Heuristic: a struct-form-internal pair starts with `:`.
-    items.len() == 2
-        && matches!(&items[0], SExpr::Symbol(k) if k.starts_with(':'))
+    items.len() == 2 && matches!(&items[0], SExpr::Symbol(k) if k.starts_with(':'))
 }
 
 fn diff_struct(
@@ -387,9 +386,11 @@ mod tests {
 
     #[test]
     fn iac_attribute_diff_single_field() {
-        use crate::testing::TestAttributeBuilder;
         use crate::ir::IacType;
-        let a = TestAttributeBuilder::new("x", IacType::String).required().build();
+        use crate::testing::TestAttributeBuilder;
+        let a = TestAttributeBuilder::new("x", IacType::String)
+            .required()
+            .build();
         let b = TestAttributeBuilder::new("x", IacType::String).build(); // not required
         let edits = diff(&a.to_sexpr(), &b.to_sexpr());
         // The only differing field must be `required`. (TestAttributeBuilder

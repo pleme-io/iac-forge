@@ -42,8 +42,7 @@
 
 use crate::morphism::{Morphism, ProvenMorphism};
 use crate::sexpr::{
-    parse_struct, struct_expr, take_field, ContentHash, FromSExpr, SExpr, SExprError,
-    ToSExpr,
+    ContentHash, FromSExpr, SExpr, SExprError, ToSExpr, parse_struct, struct_expr, take_field,
 };
 
 // ── Quality tags ─────────────────────────────────────────────────
@@ -246,11 +245,7 @@ impl ToSExpr for TraceStep {
                     "established",
                     SExpr::List({
                         let mut v = vec![SExpr::Symbol("list".into())];
-                        v.extend(
-                            self.established
-                                .iter()
-                                .map(|q| SExpr::String(q.0.clone())),
-                        );
+                        v.extend(self.established.iter().map(|q| SExpr::String(q.0.clone())));
                         v
                     }),
                 ),
@@ -274,9 +269,7 @@ impl FromSExpr for TraceStep {
         let kind = match kind_sym {
             "promotion" => StageKind::Promotion,
             "mutation" => StageKind::Mutation,
-            other => {
-                return Err(SExprError::UnknownVariant(format!("StageKind::{other}")))
-            }
+            other => return Err(SExprError::UnknownVariant(format!("StageKind::{other}"))),
         };
         let input_hex = String::from_sexpr(take_field(&f, "input-hash")?)?;
         let output_hex = String::from_sexpr(take_field(&f, "output-hash")?)?;
@@ -374,8 +367,14 @@ impl FromSExpr for Trace {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PipelineError {
-    MissingQuality { stage: String, quality: Quality },
-    InvariantViolations { stage: String, violations: Vec<String> },
+    MissingQuality {
+        stage: String,
+        quality: Quality,
+    },
+    InvariantViolations {
+        stage: String,
+        violations: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for PipelineError {
@@ -493,8 +492,8 @@ mod tests {
 
     #[test]
     fn stage_requires_quality_present_in_held() {
-        let stage = Stage::new("x", StageKind::Mutation, AddOne)
-            .requires(Quality::new("validated"));
+        let stage =
+            Stage::new("x", StageKind::Mutation, AddOne).requires(Quality::new("validated"));
         let err = stage.run(&5, &[]).unwrap_err();
         assert!(matches!(err, PipelineError::MissingQuality { .. }));
 
@@ -504,8 +503,8 @@ mod tests {
 
     #[test]
     fn stage_establishes_quality_recorded_in_step() {
-        let stage = Stage::new("x", StageKind::Mutation, AddOne)
-            .establishes(Quality::new("normalized"));
+        let stage =
+            Stage::new("x", StageKind::Mutation, AddOne).establishes(Quality::new("normalized"));
         let (_, step) = stage.run(&5, &[]).unwrap();
         assert_eq!(step.established, vec![Quality::new("normalized")]);
     }
@@ -586,8 +585,7 @@ mod tests {
 
     #[test]
     fn trace_step_round_trips_via_sexpr() {
-        let stage = Stage::new("x", StageKind::Mutation, AddOne)
-            .establishes(Quality::new("q1"));
+        let stage = Stage::new("x", StageKind::Mutation, AddOne).establishes(Quality::new("q1"));
         let (_, step) = stage.run(&5, &[]).unwrap();
         let round = TraceStep::from_sexpr(&step.to_sexpr()).expect("parse");
         assert_eq!(round, step);
@@ -632,8 +630,7 @@ mod tests {
     #[test]
     fn trace_aggregates_all_established_qualities() {
         let stages = vec![
-            Stage::new("a", StageKind::Mutation, AddOne)
-                .establishes(Quality::new("q1")),
+            Stage::new("a", StageKind::Mutation, AddOne).establishes(Quality::new("q1")),
             Stage::new("b", StageKind::Mutation, Double)
                 .establishes(Quality::new("q2"))
                 .establishes(Quality::new("q1")), // duplicate

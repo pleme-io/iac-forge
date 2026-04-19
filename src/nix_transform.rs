@@ -78,8 +78,9 @@ pub enum NixEvaluator {
 impl NixEvaluator {
     fn binary(&self) -> String {
         match self {
-            Self::Default => std::env::var("NIX_EVALUATOR")
-                .unwrap_or_else(|_| "nix-instantiate".to_string()),
+            Self::Default => {
+                std::env::var("NIX_EVALUATOR").unwrap_or_else(|_| "nix-instantiate".to_string())
+            }
             Self::Custom(s) => s.clone(),
         }
     }
@@ -112,9 +113,7 @@ pub fn apply_nix_transform(
 
     // Build the Nix expression to evaluate. We want JSON output so we
     // use `builtins.toJSON ((<expression>) <input>)`.
-    let full_expr = format!(
-        "builtins.toJSON (({expression}) {input_nix})"
-    );
+    let full_expr = format!("builtins.toJSON (({expression}) {input_nix})");
 
     let binary = evaluator.binary();
     let out = Command::new(&binary)
@@ -190,9 +189,8 @@ fn json_to_sexpr(v: &serde_json::Value) -> Result<SExpr, NixTransformError> {
                 Some(J::String(s)) => s.clone(),
                 _ => {
                     return Err(NixTransformError::DecodeError(
-                        "object missing `head` key — can't reconstruct struct-form"
-                            .into(),
-                    ))
+                        "object missing `head` key — can't reconstruct struct-form".into(),
+                    ));
                 }
             };
             let mut out = vec![SExpr::Symbol(head_name)];
@@ -204,10 +202,7 @@ fn json_to_sexpr(v: &serde_json::Value) -> Result<SExpr, NixTransformError> {
                     continue;
                 }
                 let v = json_to_sexpr(&map[k])?;
-                out.push(SExpr::List(vec![
-                    SExpr::Symbol(format!(":{k}")),
-                    v,
-                ]));
+                out.push(SExpr::List(vec![SExpr::Symbol(format!(":{k}")), v]));
             }
             Ok(SExpr::List(out))
         }

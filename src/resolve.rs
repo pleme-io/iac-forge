@@ -40,8 +40,7 @@ fn build_attribute(
     let sensitive = override_cfg.is_some_and(|o| o.sensitive);
 
     let immutable = if is_resource {
-        override_cfg.is_some_and(|o| o.force_new)
-            || force_new_fields.contains(&field.name)
+        override_cfg.is_some_and(|o| o.force_new) || force_new_fields.contains(&field.name)
     } else {
         false
     };
@@ -99,18 +98,17 @@ pub fn resolve_resource(
 ) -> Result<IacResource, IacForgeError> {
     let create_fields = api.fields(&resource.crud.create_schema)?;
 
-    let update_required: HashSet<String> = if let Some(ref update_schema) =
-        resource.crud.update_schema
-    {
-        api.fields(update_schema)
-            .unwrap_or_default()
-            .iter()
-            .filter(|f| f.required)
-            .map(|f| f.name.clone())
-            .collect()
-    } else {
-        HashSet::new()
-    };
+    let update_required: HashSet<String> =
+        if let Some(ref update_schema) = resource.crud.update_schema {
+            api.fields(update_schema)
+                .unwrap_or_default()
+                .iter()
+                .filter(|f| f.required)
+                .map(|f| f.name.clone())
+                .collect()
+        } else {
+            HashSet::new()
+        };
 
     let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
 
@@ -184,14 +182,9 @@ pub fn resolve_data_source(
 
         let override_cfg = ds.fields.get(&field.name);
 
-        if let Some(attr) = build_attribute(
-            field,
-            override_cfg,
-            &[],
-            &reverse_mapping,
-            false,
-            false,
-        ) {
+        if let Some(attr) =
+            build_attribute(field, override_cfg, &[], &reverse_mapping, false, false)
+        {
             attributes.push(attr);
         }
     }
@@ -427,7 +420,11 @@ components:
 
         // Without an update schema, all fields should have update_only = false
         for attr in &iac.attributes {
-            assert!(!attr.update_only, "field {} should not be update_only", attr.canonical_name);
+            assert!(
+                !attr.update_only,
+                "field {} should not be update_only",
+                attr.canonical_name
+            );
         }
     }
 
@@ -513,10 +510,7 @@ components:
             .find(|a| a.canonical_name == "access_id")
             .expect("access_id");
         assert!(access.computed);
-        assert_eq!(
-            access.read_path,
-            Some("auth_method_access_id".to_string())
-        );
+        assert_eq!(access.read_path, Some("auth_method_access_id".to_string()));
     }
 
     #[test]
@@ -641,7 +635,10 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
-        assert!(iac.attributes.is_empty(), "empty schema should produce zero attributes");
+        assert!(
+            iac.attributes.is_empty(),
+            "empty schema should produce zero attributes"
+        );
     }
 
     #[test]
@@ -942,8 +939,15 @@ components:
                 "field {} should be computed",
                 attr.canonical_name
             );
-            assert!(!attr.required, "field {} should not be required", attr.canonical_name);
-            assert!(!attr.update_only, "data source field should never be update_only");
+            assert!(
+                !attr.required,
+                "field {} should not be required",
+                attr.canonical_name
+            );
+            assert!(
+                !attr.update_only,
+                "data source field should never be update_only"
+            );
         }
     }
 
@@ -1196,7 +1200,10 @@ components:
             .iter()
             .find(|a| a.canonical_name == "region")
             .expect("region");
-        assert!(region.immutable, "region should be immutable via force_new override");
+        assert!(
+            region.immutable,
+            "region should be immutable via force_new override"
+        );
     }
 
     #[test]
@@ -1285,7 +1292,10 @@ components:
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
         for attr in &iac.attributes {
-            assert!(!attr.immutable, "data source field should never be immutable");
+            assert!(
+                !attr.immutable,
+                "data source field should never be immutable"
+            );
         }
     }
 
@@ -1319,12 +1329,23 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
-        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
         // required field in data source: required=false but computed=false (it's an input)
         assert!(!name.computed, "required input should not be computed");
 
-        let result = iac.attributes.iter().find(|a| a.canonical_name == "result").expect("result");
-        assert!(result.computed, "optional non-required field should be computed in data source");
+        let result = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "result")
+            .expect("result");
+        assert!(
+            result.computed,
+            "optional non-required field should be computed in data source"
+        );
     }
 
     #[test]
@@ -1421,7 +1442,11 @@ components:
         );
         assert_eq!(
             mode.enum_values,
-            Some(vec!["active".to_string(), "passive".to_string(), "disabled".to_string()])
+            Some(vec![
+                "active".to_string(),
+                "passive".to_string(),
+                "disabled".to_string()
+            ])
         );
     }
 
@@ -1535,13 +1560,24 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
-        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
         assert!(name.required);
         assert!(!name.optional, "required field should have optional=false");
 
-        let tags = iac.attributes.iter().find(|a| a.canonical_name == "tags").expect("tags");
+        let tags = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "tags")
+            .expect("tags");
         assert!(!tags.required);
-        assert!(tags.optional, "non-required field should have optional=true");
+        assert!(
+            tags.optional,
+            "non-required field should have optional=true"
+        );
     }
 
     #[test]
@@ -1592,8 +1628,15 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
-        let extra = iac.attributes.iter().find(|a| a.canonical_name == "extra").expect("extra");
-        assert!(extra.computed, "explicitly computed field should be computed");
+        let extra = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "extra")
+            .expect("extra");
+        assert!(
+            extra.computed,
+            "explicitly computed field should be computed"
+        );
     }
 
     #[test]
@@ -1628,7 +1671,11 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
-        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
         assert_eq!(name.read_path, Some("resp_name".to_string()));
     }
 
@@ -1678,8 +1725,15 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
-        let ports = iac.attributes.iter().find(|a| a.canonical_name == "ports").expect("ports");
-        assert_eq!(ports.iac_type, crate::ir::IacType::List(Box::new(crate::ir::IacType::Integer)));
+        let ports = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "ports")
+            .expect("ports");
+        assert_eq!(
+            ports.iac_type,
+            crate::ir::IacType::List(Box::new(crate::ir::IacType::Integer))
+        );
     }
 
     #[test]
@@ -1724,7 +1778,11 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
-        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
         assert_eq!(name.description, "API description for name");
     }
 
@@ -1770,7 +1828,11 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
-        let name = iac.attributes.iter().find(|a| a.canonical_name == "name").expect("name");
+        let name = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "name")
+            .expect("name");
         assert!(name.description.is_empty());
     }
 
@@ -1819,7 +1881,10 @@ components:
         let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
 
         for attr in &iac.attributes {
-            assert!(!attr.update_only, "with missing update schema, nothing should be update_only");
+            assert!(
+                !attr.update_only,
+                "with missing update schema, nothing should be update_only"
+            );
         }
     }
 
@@ -1923,7 +1988,11 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
-        let secret = iac.attributes.iter().find(|a| a.canonical_name == "secret").expect("secret");
+        let secret = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "secret")
+            .expect("secret");
         assert!(secret.sensitive);
     }
 
@@ -1958,7 +2027,11 @@ components:
         let defaults = ProviderDefaults::default();
         let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
 
-        let flag = iac.attributes.iter().find(|a| a.canonical_name == "flag").expect("flag");
+        let flag = iac
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "flag")
+            .expect("flag");
         assert_eq!(flag.iac_type, crate::ir::IacType::Boolean);
     }
 

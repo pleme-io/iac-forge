@@ -50,14 +50,12 @@ fn arb_iac_type() -> impl Strategy<Value = IacType> {
             inner.clone().prop_map(|t| IacType::List(Box::new(t))),
             inner.clone().prop_map(|t| IacType::Set(Box::new(t))),
             inner.clone().prop_map(|t| IacType::Map(Box::new(t))),
-            (
-                prop::collection::vec("[a-z]{1,6}", 0..4),
-                inner.clone(),
-            )
-                .prop_map(|(values, underlying)| IacType::Enum {
+            (prop::collection::vec("[a-z]{1,6}", 0..4), inner.clone(),).prop_map(
+                |(values, underlying)| IacType::Enum {
                     values,
                     underlying: Box::new(underlying),
-                }),
+                }
+            ),
         ]
     })
 }
@@ -70,8 +68,7 @@ where
     T: ToSExpr + FromSExpr + std::fmt::Debug + PartialEq,
 {
     let s = value.to_sexpr();
-    let back =
-        T::from_sexpr(&s).unwrap_or_else(|e| panic!("from_sexpr failed: {e:?}"));
+    let back = T::from_sexpr(&s).unwrap_or_else(|e| panic!("from_sexpr failed: {e:?}"));
     assert_eq!(back, value, "reversibility lemma violated");
 
     // Text boundary too.
@@ -89,8 +86,7 @@ where
     T: ToSExpr + FromSExpr + std::fmt::Debug,
 {
     let s = value.to_sexpr();
-    let back =
-        T::from_sexpr(&s).unwrap_or_else(|e| panic!("from_sexpr failed: {e:?}"));
+    let back = T::from_sexpr(&s).unwrap_or_else(|e| panic!("from_sexpr failed: {e:?}"));
     assert_eq!(
         back.content_hash(),
         value.content_hash(),
@@ -174,12 +170,12 @@ fn iac_type_composites_reversible() {
 
 #[test]
 fn iac_type_deeply_nested_reversible() {
-    let deep = IacType::List(Box::new(IacType::List(Box::new(IacType::List(
-        Box::new(IacType::Enum {
+    let deep = IacType::List(Box::new(IacType::List(Box::new(IacType::List(Box::new(
+        IacType::Enum {
             values: vec!["x".into()],
             underlying: Box::new(IacType::String),
-        }),
-    )))));
+        },
+    ))))));
     assert_strict_reversible(deep);
 }
 
@@ -288,8 +284,7 @@ fn lemma_covers_every_major_ir_type() {
     // confirm the hash matches. This makes it hard to silently break
     // the lemma for Provider without a test failure.
     let p: IacProvider = test_provider("anchor");
-    let back =
-        IacProvider::from_sexpr(&p.to_sexpr()).expect("provider reversible");
+    let back = IacProvider::from_sexpr(&p.to_sexpr()).expect("provider reversible");
     assert_eq!(back.content_hash(), p.content_hash());
 
     // Sub-types (CrudInfo, IdentityInfo) are exercised transitively
@@ -302,7 +297,9 @@ fn lemma_covers_every_major_ir_type() {
     );
     let id: &IdentityInfo = &r.identity;
     assert_eq!(
-        IdentityInfo::from_sexpr(&id.to_sexpr()).unwrap().content_hash(),
+        IdentityInfo::from_sexpr(&id.to_sexpr())
+            .unwrap()
+            .content_hash(),
         id.content_hash(),
     );
 }

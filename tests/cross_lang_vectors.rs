@@ -43,7 +43,6 @@ const VECTORS: &[(&str, &str)] = &[
         "\"hello\"",
         "c5919eb25e32df3ac400757942250b6a9776c7b1ac1e8e465ec6ca0de8e4cb3f",
     ),
-
     // ═══ Lists ═══
     (
         "()",
@@ -57,7 +56,6 @@ const VECTORS: &[(&str, &str)] = &[
         "(list 1 2 3)",
         "218f16f9feb222135d920d7924f961f561487d6aab171f9241c204731b1e3606",
     ),
-
     // ═══ IacType — bare symbols for scalars ═══
     (
         "string",
@@ -83,7 +81,6 @@ const VECTORS: &[(&str, &str)] = &[
         "any",
         "fd0b6c0bab658ae9e3e6bf09032b6aec599d2c78a2b3783afb8fc415078533d1",
     ),
-
     // ═══ IacType — composite variants ═══
     (
         "(list integer)",
@@ -121,7 +118,6 @@ const VECTORS: &[(&str, &str)] = &[
         "(enum (:values (list \"tcp\" \"udp\")) (:underlying string))",
         "7210f505fb7676b17039f4a07344be0f795b6d837e037cb6737c330cdc940980",
     ),
-
     // ═══ RubyType variants ═══
     (
         "(simple \"T::String\")",
@@ -151,7 +147,6 @@ const VECTORS: &[(&str, &str)] = &[
         "(optional (simple \"T::Integer\"))",
         "cba66661972132ba4bace88af27787463f632bc4f80996fb858163cdaad02f20",
     ),
-
     // ═══ RbsType variants ═══
     (
         "(named \"String\")",
@@ -309,6 +304,9 @@ fn iac_attribute_has_stable_content_hash() {
     };
     let emitted_a = attr.to_sexpr().emit();
     let emitted_b = attr.to_sexpr().emit();
-    assert_eq!(emitted_a, emitted_b, "attribute emission must be deterministic");
+    assert_eq!(
+        emitted_a, emitted_b,
+        "attribute emission must be deterministic"
+    );
     assert_eq!(attr.content_hash(), attr.content_hash());
 }

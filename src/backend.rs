@@ -213,11 +213,7 @@ pub trait Backend {
     ///
     /// Returns a list of human-readable validation messages. An empty list
     /// means the resource is valid for this backend.
-    fn validate_resource(
-        &self,
-        _resource: &IacResource,
-        _provider: &IacProvider,
-    ) -> Vec<String> {
+    fn validate_resource(&self, _resource: &IacResource, _provider: &IacProvider) -> Vec<String> {
         vec![]
     }
 
@@ -318,7 +314,7 @@ mod tests {
             _resources: &[IacResource],
             _data_sources: &[IacDataSource],
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
-            Ok(vec![GeneratedArtifact { 
+            Ok(vec![GeneratedArtifact {
                 path: "provider.go".to_string(),
                 content: String::new(),
                 kind: ArtifactKind::Provider,
@@ -454,7 +450,7 @@ mod tests {
 
     #[test]
     fn generated_artifact_display() {
-        let artifact = GeneratedArtifact { 
+        let artifact = GeneratedArtifact {
             path: "resource_secret.go".to_string(),
             content: "package main".to_string(),
             kind: ArtifactKind::Resource,
@@ -466,7 +462,7 @@ mod tests {
 
     #[test]
     fn generated_artifact_serialize_roundtrip() {
-        let artifact = GeneratedArtifact { 
+        let artifact = GeneratedArtifact {
             path: "provider.go".to_string(),
             content: "code here".to_string(),
             kind: ArtifactKind::Provider,
@@ -569,7 +565,10 @@ mod tests {
         let data_sources = vec![];
 
         let result = backend.generate_all(&provider, &resources, &data_sources);
-        assert!(result.is_err(), "should propagate resource generation error");
+        assert!(
+            result.is_err(),
+            "should propagate resource generation error"
+        );
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("resource generation failed"),
@@ -782,7 +781,10 @@ mod tests {
         let backend = FailingProviderBackend;
         let provider = make_test_provider();
         let result = backend.generate_all(&provider, &[], &[]);
-        assert!(result.is_err(), "should propagate provider generation error");
+        assert!(
+            result.is_err(),
+            "should propagate provider generation error"
+        );
     }
 
     /// Backend that fails on test generation.
@@ -872,10 +874,7 @@ mod tests {
             ds_idx < provider_idx,
             "data sources should come before provider"
         );
-        assert!(
-            provider_idx < test_idx,
-            "provider should come before tests"
-        );
+        assert!(provider_idx < test_idx, "provider should come before tests");
     }
 
     #[test]
@@ -887,10 +886,7 @@ mod tests {
             make_test_resource("r2"),
             make_test_resource("r3"),
         ];
-        let data_sources = vec![
-            make_test_data_source("ds1"),
-            make_test_data_source("ds2"),
-        ];
+        let data_sources = vec![make_test_data_source("ds1"), make_test_data_source("ds2")];
         let artifacts = backend
             .generate_all(&provider, &resources, &data_sources)
             .expect("generate_all");
@@ -901,13 +897,19 @@ mod tests {
     #[test]
     fn naming_convention_resource_type_name() {
         let naming = TestNaming;
-        assert_eq!(naming.resource_type_name("secret", "akeyless"), "akeyless_secret");
+        assert_eq!(
+            naming.resource_type_name("secret", "akeyless"),
+            "akeyless_secret"
+        );
     }
 
     #[test]
     fn naming_convention_file_name() {
         let naming = TestNaming;
-        assert_eq!(naming.file_name("secret", &ArtifactKind::Resource), "secret.go");
+        assert_eq!(
+            naming.file_name("secret", &ArtifactKind::Resource),
+            "secret.go"
+        );
         assert_eq!(naming.file_name("secret", &ArtifactKind::Test), "secret.go");
     }
 
@@ -919,7 +921,7 @@ mod tests {
 
     #[test]
     fn generated_artifact_display_data_source() {
-        let artifact = GeneratedArtifact { 
+        let artifact = GeneratedArtifact {
             path: "data_source_config.go".to_string(),
             content: String::new(),
             kind: ArtifactKind::DataSource,
@@ -931,7 +933,7 @@ mod tests {
 
     #[test]
     fn generated_artifact_display_test() {
-        let artifact = GeneratedArtifact { 
+        let artifact = GeneratedArtifact {
             path: "resource_secret_test.go".to_string(),
             content: "test code".to_string(),
             kind: ArtifactKind::Test,
@@ -943,21 +945,21 @@ mod tests {
 
     #[test]
     fn generated_artifact_equality() {
-        let a = GeneratedArtifact { 
+        let a = GeneratedArtifact {
             path: "a.go".to_string(),
             content: "content".to_string(),
             kind: ArtifactKind::Resource,
             source_hash: String::new(),
             morphism_chain: Vec::new(),
         };
-        let b = GeneratedArtifact { 
+        let b = GeneratedArtifact {
             path: "a.go".to_string(),
             content: "content".to_string(),
             kind: ArtifactKind::Resource,
             source_hash: String::new(),
             morphism_chain: Vec::new(),
         };
-        let c = GeneratedArtifact { 
+        let c = GeneratedArtifact {
             path: "a.go".to_string(),
             content: "different".to_string(),
             kind: ArtifactKind::Resource,
@@ -994,7 +996,7 @@ mod tests {
 
     #[test]
     fn generated_artifact_display_module() {
-        let artifact = GeneratedArtifact { 
+        let artifact = GeneratedArtifact {
             path: "index.ts".to_string(),
             content: String::new(),
             kind: ArtifactKind::Module,

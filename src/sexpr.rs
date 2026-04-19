@@ -184,7 +184,13 @@ impl SExpr {
             Self::Float(fl) => {
                 // Always include a decimal to distinguish from Integer.
                 let s = fl.to_string();
-                if s.contains('.') || s.contains('e') || s.contains('E') || s == "inf" || s == "-inf" || s == "NaN" {
+                if s.contains('.')
+                    || s.contains('e')
+                    || s.contains('E')
+                    || s == "inf"
+                    || s == "-inf"
+                    || s == "NaN"
+                {
                     out.push_str(&s);
                 } else {
                     out.push_str(&s);
@@ -412,7 +418,9 @@ impl FromSExpr for i64 {
     fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
         match s {
             SExpr::Integer(i) => Ok(*i),
-            other => Err(SExprError::Shape(format!("expected integer, got {other:?}"))),
+            other => Err(SExprError::Shape(format!(
+                "expected integer, got {other:?}"
+            ))),
         }
     }
 }
@@ -475,9 +483,7 @@ impl<T: FromSExpr> FromSExpr for Vec<T> {
     fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
         let items = s.as_list()?;
         let Some((head, rest)) = items.split_first() else {
-            return Err(SExprError::Shape(
-                "expected (list ...) form, got ()".into(),
-            ));
+            return Err(SExprError::Shape("expected (list ...) form, got ()".into()));
         };
         let tag = head.as_symbol()?;
         if tag != "list" {
@@ -497,10 +503,7 @@ pub fn struct_expr(name: &str, fields: Vec<(&str, SExpr)>) -> SExpr {
     let mut items = Vec::with_capacity(fields.len() + 1);
     items.push(SExpr::Symbol(name.to_string()));
     for (k, v) in fields {
-        items.push(SExpr::List(vec![
-            SExpr::Symbol(format!(":{k}")),
-            v,
-        ]));
+        items.push(SExpr::List(vec![SExpr::Symbol(format!(":{k}")), v]));
     }
     SExpr::List(items)
 }
@@ -515,9 +518,9 @@ pub fn parse_struct<'a>(
     expected_name: &str,
 ) -> Result<std::collections::BTreeMap<String, &'a SExpr>, SExprError> {
     let items = s.as_list()?;
-    let (head, rest) = items.split_first().ok_or_else(|| {
-        SExprError::Shape(format!("expected ({expected_name} …), got ()"))
-    })?;
+    let (head, rest) = items
+        .split_first()
+        .ok_or_else(|| SExprError::Shape(format!("expected ({expected_name} …), got ()")))?;
     let name = head.as_symbol()?;
     if name != expected_name {
         return Err(SExprError::Shape(format!(
@@ -570,10 +573,7 @@ mod tests {
 
     #[test]
     fn emit_string_with_escapes() {
-        assert_eq!(
-            SExpr::String("a\"b\nc".into()).emit(),
-            "\"a\\\"b\\nc\"",
-        );
+        assert_eq!(SExpr::String("a\"b\nc".into()).emit(), "\"a\\\"b\\nc\"",);
     }
 
     #[test]
@@ -621,11 +621,11 @@ mod tests {
         assert_eq!(SExpr::parse("true").unwrap(), SExpr::Bool(true));
         assert_eq!(SExpr::parse("false").unwrap(), SExpr::Bool(false));
         assert_eq!(SExpr::parse("nil").unwrap(), SExpr::Nil);
-        assert_eq!(SExpr::parse("hello").unwrap(), SExpr::Symbol("hello".into()));
         assert_eq!(
-            SExpr::parse("\"hi\"").unwrap(),
-            SExpr::String("hi".into())
+            SExpr::parse("hello").unwrap(),
+            SExpr::Symbol("hello".into())
         );
+        assert_eq!(SExpr::parse("\"hi\"").unwrap(), SExpr::String("hi".into()));
     }
 
     #[test]
@@ -648,28 +648,19 @@ mod tests {
             SExpr::List(vec![
                 SExpr::Symbol("foo".into()),
                 SExpr::Integer(1),
-                SExpr::List(vec![
-                    SExpr::Symbol("bar".into()),
-                    SExpr::String("x".into()),
-                ]),
+                SExpr::List(vec![SExpr::Symbol("bar".into()), SExpr::String("x".into()),]),
             ])
         );
     }
 
     #[test]
     fn parse_rejects_unterminated_list() {
-        assert!(matches!(
-            SExpr::parse("(foo"),
-            Err(SExprError::Parse(_))
-        ));
+        assert!(matches!(SExpr::parse("(foo"), Err(SExprError::Parse(_))));
     }
 
     #[test]
     fn parse_rejects_trailing_content() {
-        assert!(matches!(
-            SExpr::parse("1 2"),
-            Err(SExprError::Parse(_))
-        ));
+        assert!(matches!(SExpr::parse("1 2"), Err(SExprError::Parse(_))));
     }
 
     #[test]
@@ -677,10 +668,7 @@ mod tests {
         let s = SExpr::parse("; leading\n(a ; mid\n b)\n; trailing").unwrap();
         assert_eq!(
             s,
-            SExpr::List(vec![
-                SExpr::Symbol("a".into()),
-                SExpr::Symbol("b".into())
-            ])
+            SExpr::List(vec![SExpr::Symbol("a".into()), SExpr::Symbol("b".into())])
         );
     }
 
@@ -701,8 +689,14 @@ mod tests {
     fn round_trip_option_some_and_none() {
         let some: Option<String> = Some("hi".into());
         let none: Option<String> = None;
-        assert_eq!(Option::<String>::from_sexpr(&some.to_sexpr()).unwrap(), some);
-        assert_eq!(Option::<String>::from_sexpr(&none.to_sexpr()).unwrap(), none);
+        assert_eq!(
+            Option::<String>::from_sexpr(&some.to_sexpr()).unwrap(),
+            some
+        );
+        assert_eq!(
+            Option::<String>::from_sexpr(&none.to_sexpr()).unwrap(),
+            none
+        );
     }
 
     #[test]
@@ -809,10 +803,7 @@ mod tests {
 
     #[test]
     fn content_hash_stable_across_clones() {
-        let s = SExpr::List(vec![
-            SExpr::Symbol("x".into()),
-            SExpr::Integer(42),
-        ]);
+        let s = SExpr::List(vec![SExpr::Symbol("x".into()), SExpr::Integer(42)]);
         let clone = s.clone();
         assert_eq!(s.content_hash(), clone.content_hash());
     }

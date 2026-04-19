@@ -23,13 +23,10 @@ use std::process::{Command, Stdio};
 
 use iac_forge::ir::{IacAttribute, IacType};
 use iac_forge::sexpr::{SExpr, ToSExpr};
-use iac_forge::testing::{test_resource, TestAttributeBuilder};
+use iac_forge::testing::{TestAttributeBuilder, test_resource};
 
 fn ruby_available() -> bool {
-    Command::new("nix-shell")
-        .arg("--version")
-        .output()
-        .is_ok()
+    Command::new("nix-shell").arg("--version").output().is_ok()
 }
 
 /// Canonical test vectors covering each primitive + composite shape
@@ -37,8 +34,12 @@ fn ruby_available() -> bool {
 fn build_vectors() -> Vec<(&'static str, SExpr)> {
     let mut resource = test_resource("widget");
     resource.attributes = vec![
-        TestAttributeBuilder::new("name", IacType::String).required().build(),
-        TestAttributeBuilder::new("value", IacType::String).sensitive().build(),
+        TestAttributeBuilder::new("name", IacType::String)
+            .required()
+            .build(),
+        TestAttributeBuilder::new("value", IacType::String)
+            .sensitive()
+            .build(),
     ];
 
     vec![
@@ -50,26 +51,40 @@ fn build_vectors() -> Vec<(&'static str, SExpr)> {
         ("string-literal", SExpr::String("hello".into())),
         ("string-with-escapes", SExpr::String("a\"b\nc".into())),
         ("empty-list", SExpr::List(vec![])),
-        ("list-of-integers", SExpr::List(vec![
-            SExpr::Symbol("list".into()),
-            SExpr::Integer(1),
-            SExpr::Integer(2),
-            SExpr::Integer(3),
-        ])),
+        (
+            "list-of-integers",
+            SExpr::List(vec![
+                SExpr::Symbol("list".into()),
+                SExpr::Integer(1),
+                SExpr::Integer(2),
+                SExpr::Integer(3),
+            ]),
+        ),
         ("iac-type-string", IacType::String.to_sexpr()),
-        ("iac-type-list-integer", IacType::List(Box::new(IacType::Integer)).to_sexpr()),
-        ("iac-type-enum-values", IacType::Enum {
-            values: vec!["tcp".into(), "udp".into()],
-            underlying: Box::new(IacType::String),
-        }.to_sexpr()),
-        ("iac-attribute", IacAttribute {
-            api_name: "my-field".into(),
-            canonical_name: "my_field".into(),
-            description: "desc".into(),
-            iac_type: IacType::String,
-            required: true,
-            ..Default::default()
-        }.to_sexpr()),
+        (
+            "iac-type-list-integer",
+            IacType::List(Box::new(IacType::Integer)).to_sexpr(),
+        ),
+        (
+            "iac-type-enum-values",
+            IacType::Enum {
+                values: vec!["tcp".into(), "udp".into()],
+                underlying: Box::new(IacType::String),
+            }
+            .to_sexpr(),
+        ),
+        (
+            "iac-attribute",
+            IacAttribute {
+                api_name: "my-field".into(),
+                canonical_name: "my_field".into(),
+                description: "desc".into(),
+                iac_type: IacType::String,
+                required: true,
+                ..Default::default()
+            }
+            .to_sexpr(),
+        ),
         ("iac-resource-small", resource.to_sexpr()),
     ]
 }
@@ -80,8 +95,8 @@ fn build_vectors() -> Vec<(&'static str, SExpr)> {
 /// Returns `None` if the Ruby toolchain can't be launched or if
 /// `blake3` can't load — the harness treats that as a graceful skip.
 fn ruby_hashes(emissions: &[String]) -> Option<Vec<String>> {
-    let script_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/cross_lang/sexpr_ref.rb");
+    let script_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cross_lang/sexpr_ref.rb");
 
     // Join emissions one-per-line for -lines mode.
     let input = emissions.join("\n");
@@ -188,11 +203,14 @@ fn ruby_reference_script_is_syntactically_valid() {
     // Minimum sanity: the Ruby reference file exists at the expected
     // path and looks like Ruby. (We can't easily eval it without the
     // full nix-shell harness — that's what the full test does.)
-    let script_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/cross_lang/sexpr_ref.rb");
+    let script_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cross_lang/sexpr_ref.rb");
     let contents = std::fs::read_to_string(&script_path)
         .expect("sexpr_ref.rb must be committed at tests/cross_lang/");
-    assert!(contents.contains("frozen_string_literal"), "Ruby pragma missing");
+    assert!(
+        contents.contains("frozen_string_literal"),
+        "Ruby pragma missing"
+    );
     assert!(contents.contains("Blake3.hexdigest"), "BLAKE3 call missing");
     assert!(contents.contains("SExprReader"), "parser class missing");
 }

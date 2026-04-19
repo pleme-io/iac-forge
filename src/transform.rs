@@ -232,9 +232,7 @@ pub mod script {
         }
     }
 
-    fn read_list(
-        chars: &mut std::iter::Peekable<std::str::Chars>,
-    ) -> Result<Sexpr, String> {
+    fn read_list(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<Sexpr, String> {
         skip_ws_and_comments(chars);
         match chars.next() {
             Some('(') => {
@@ -258,9 +256,7 @@ pub mod script {
         }
     }
 
-    fn read_string(
-        chars: &mut std::iter::Peekable<std::str::Chars>,
-    ) -> Result<Sexpr, String> {
+    fn read_string(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<Sexpr, String> {
         if chars.next() != Some('"') {
             return Err("expected opening quote".into());
         }
@@ -284,9 +280,7 @@ pub mod script {
         }
     }
 
-    fn read_atom(
-        chars: &mut std::iter::Peekable<std::str::Chars>,
-    ) -> Result<Sexpr, String> {
+    fn read_atom(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<Sexpr, String> {
         let mut buf = String::new();
         while let Some(&c) = chars.peek() {
             if c.is_whitespace() || c == '(' || c == ')' || c == ';' {
@@ -379,12 +373,14 @@ mod tests {
     use super::script;
     use super::{ComposeTransforms, Identity, Transform};
     use crate::ir::IacType;
-    use crate::testing::{test_resource, TestAttributeBuilder};
+    use crate::testing::{TestAttributeBuilder, test_resource};
 
     fn res() -> crate::ir::IacResource {
         let mut r = test_resource("widget");
         r.attributes = vec![
-            TestAttributeBuilder::new("name", IacType::String).required().build(),
+            TestAttributeBuilder::new("name", IacType::String)
+                .required()
+                .build(),
             TestAttributeBuilder::new("value", IacType::String).build(),
         ];
         r.description = "initial".into();
@@ -411,7 +407,11 @@ mod tests {
     fn mark_sensitive_flips_the_flag() {
         let r = res();
         let r = ResourceOp::MarkSensitive("value".into()).apply(r);
-        assert!(r.attributes.iter().any(|a| a.canonical_name == "value" && a.sensitive));
+        assert!(
+            r.attributes
+                .iter()
+                .any(|a| a.canonical_name == "value" && a.sensitive)
+        );
     }
 
     #[test]
@@ -458,7 +458,11 @@ mod tests {
         ];
         let r = ops.apply(r);
         assert_eq!(r.description, "tuned");
-        assert!(r.attributes.iter().any(|a| a.canonical_name == "value" && a.sensitive));
+        assert!(
+            r.attributes
+                .iter()
+                .any(|a| a.canonical_name == "value" && a.sensitive)
+        );
     }
 
     #[test]
@@ -542,7 +546,11 @@ mod tests {
         let r = ops.apply(res());
         assert_eq!(r.description, "v2");
         assert!(r.attributes.iter().any(|a| a.canonical_name == "note"));
-        assert!(r.attributes.iter().any(|a| a.canonical_name == "value" && a.sensitive));
+        assert!(
+            r.attributes
+                .iter()
+                .any(|a| a.canonical_name == "value" && a.sensitive)
+        );
     }
 
     #[test]
@@ -556,10 +564,7 @@ mod tests {
     #[test]
     fn script_handles_string_escapes() {
         let ops = script::parse(r#"(set-description "line1\nline2")"#).unwrap();
-        assert_eq!(
-            ops,
-            vec![ResourceOp::SetDescription("line1\nline2".into())]
-        );
+        assert_eq!(ops, vec![ResourceOp::SetDescription("line1\nline2".into())]);
     }
 
     #[test]

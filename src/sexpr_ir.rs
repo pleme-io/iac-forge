@@ -11,9 +11,7 @@ use crate::ir::{
     AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IacType,
     IdentityInfo,
 };
-use crate::sexpr::{
-    parse_struct, struct_expr, take_field, FromSExpr, SExpr, SExprError, ToSExpr,
-};
+use crate::sexpr::{FromSExpr, SExpr, SExprError, ToSExpr, parse_struct, struct_expr, take_field};
 
 // ── IacType ─────────────────────────────────────────────────────────
 
@@ -26,24 +24,12 @@ impl ToSExpr for IacType {
             Self::Numeric => SExpr::Symbol("numeric".into()),
             Self::Boolean => SExpr::Symbol("boolean".into()),
             Self::Any => SExpr::Symbol("any".into()),
-            Self::List(inner) => SExpr::List(vec![
-                SExpr::Symbol("list".into()),
-                inner.to_sexpr(),
-            ]),
-            Self::Set(inner) => SExpr::List(vec![
-                SExpr::Symbol("set".into()),
-                inner.to_sexpr(),
-            ]),
-            Self::Map(inner) => SExpr::List(vec![
-                SExpr::Symbol("map".into()),
-                inner.to_sexpr(),
-            ]),
+            Self::List(inner) => SExpr::List(vec![SExpr::Symbol("list".into()), inner.to_sexpr()]),
+            Self::Set(inner) => SExpr::List(vec![SExpr::Symbol("set".into()), inner.to_sexpr()]),
+            Self::Map(inner) => SExpr::List(vec![SExpr::Symbol("map".into()), inner.to_sexpr()]),
             Self::Object { name, fields } => struct_expr(
                 "object",
-                vec![
-                    ("name", name.to_sexpr()),
-                    ("fields", fields.to_sexpr()),
-                ],
+                vec![("name", name.to_sexpr()), ("fields", fields.to_sexpr())],
             ),
             Self::Enum { values, underlying } => struct_expr(
                 "enum",
@@ -169,7 +155,9 @@ impl ToSExpr for IacAttribute {
                 ("immutable", self.immutable.to_sexpr()),
                 (
                     "default-value",
-                    self.default_value.as_ref().map_or(SExpr::Nil, json_to_sexpr),
+                    self.default_value
+                        .as_ref()
+                        .map_or(SExpr::Nil, json_to_sexpr),
                 ),
                 ("enum-values", self.enum_values.to_sexpr()),
                 ("read-path", self.read_path.to_sexpr()),
@@ -235,9 +223,10 @@ impl FromSExpr for CrudInfo {
             update_schema: Option::<String>::from_sexpr(take_field(&f, "update-schema")?)?,
             read_endpoint: String::from_sexpr(take_field(&f, "read-endpoint")?)?,
             read_schema: String::from_sexpr(take_field(&f, "read-schema")?)?,
-            read_response_schema: Option::<String>::from_sexpr(
-                take_field(&f, "read-response-schema")?,
-            )?,
+            read_response_schema: Option::<String>::from_sexpr(take_field(
+                &f,
+                "read-response-schema",
+            )?)?,
             delete_endpoint: String::from_sexpr(take_field(&f, "delete-endpoint")?)?,
             delete_schema: String::from_sexpr(take_field(&f, "delete-schema")?)?,
         })
@@ -265,9 +254,10 @@ impl FromSExpr for IdentityInfo {
         Ok(Self {
             id_field: String::from_sexpr(take_field(&f, "id-field")?)?,
             import_field: String::from_sexpr(take_field(&f, "import-field")?)?,
-            force_replace_fields: Vec::<String>::from_sexpr(
-                take_field(&f, "force-replace-fields")?,
-            )?,
+            force_replace_fields: Vec::<String>::from_sexpr(take_field(
+                &f,
+                "force-replace-fields",
+            )?)?,
         })
     }
 }
@@ -358,9 +348,10 @@ impl FromSExpr for IacDataSource {
             description: String::from_sexpr(take_field(&f, "description")?)?,
             read_endpoint: String::from_sexpr(take_field(&f, "read-endpoint")?)?,
             read_schema: String::from_sexpr(take_field(&f, "read-schema")?)?,
-            read_response_schema: Option::<String>::from_sexpr(
-                take_field(&f, "read-response-schema")?,
-            )?,
+            read_response_schema: Option::<String>::from_sexpr(take_field(
+                &f,
+                "read-response-schema",
+            )?)?,
             attributes: Vec::<IacAttribute>::from_sexpr(take_field(&f, "attributes")?)?,
         })
     }
@@ -374,10 +365,7 @@ impl FromSExpr for IacDataSource {
 // so round-trip is deterministic.
 
 fn toml_map_to_sexpr(map: &std::collections::BTreeMap<String, toml::Value>) -> SExpr {
-    let as_table: toml::Table = map
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
+    let as_table: toml::Table = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
     let encoded = toml::to_string(&as_table).expect("toml::Table is serializable");
     SExpr::List(vec![
         SExpr::Symbol("toml-map".into()),
@@ -445,7 +433,7 @@ impl FromSExpr for IacProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::{test_provider, test_resource, TestAttributeBuilder};
+    use crate::testing::{TestAttributeBuilder, test_provider, test_resource};
 
     // ── IacType ─────────────────────────────────────────────────
 
@@ -514,7 +502,9 @@ mod tests {
 
     #[test]
     fn round_trip_object_with_fields() {
-        let attr = TestAttributeBuilder::new("inner", IacType::String).required().build();
+        let attr = TestAttributeBuilder::new("inner", IacType::String)
+            .required()
+            .build();
         roundtrip_type(&IacType::Object {
             name: "Inner".into(),
             fields: vec![attr],
@@ -567,8 +557,7 @@ mod tests {
         let attr = TestAttributeBuilder::new("note", IacType::String)
             .default_value(serde_json::json!("hello"))
             .build();
-        let parsed =
-            IacAttribute::from_sexpr(&attr.to_sexpr()).expect("parse");
+        let parsed = IacAttribute::from_sexpr(&attr.to_sexpr()).expect("parse");
         assert_eq!(parsed, attr);
     }
 
@@ -599,8 +588,7 @@ mod tests {
     fn round_trip_resource_through_emit() {
         let r = test_resource("widget");
         let emitted = r.to_sexpr().emit();
-        let parsed =
-            IacResource::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
+        let parsed = IacResource::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
         assert_eq!(parsed.name, r.name);
         assert_eq!(parsed.attributes, r.attributes);
     }
@@ -620,8 +608,7 @@ mod tests {
     fn round_trip_provider_through_emit() {
         let p = test_provider("acme");
         let emitted = p.to_sexpr().emit();
-        let parsed =
-            IacProvider::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
+        let parsed = IacProvider::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
         assert_eq!(parsed.name, p.name);
         assert_eq!(parsed.auth.token_field, p.auth.token_field);
     }

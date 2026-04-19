@@ -66,12 +66,18 @@ mod tests {
 
     #[test]
     fn strip_provider_prefix_removes_prefix() {
-        assert_eq!(strip_provider_prefix("akeyless_static_secret", "akeyless"), "static_secret");
+        assert_eq!(
+            strip_provider_prefix("akeyless_static_secret", "akeyless"),
+            "static_secret"
+        );
     }
 
     #[test]
     fn strip_provider_prefix_no_match() {
-        assert_eq!(strip_provider_prefix("other_resource", "akeyless"), "other_resource");
+        assert_eq!(
+            strip_provider_prefix("other_resource", "akeyless"),
+            "other_resource"
+        );
     }
 
     #[test]

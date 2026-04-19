@@ -20,8 +20,8 @@ fn nix_available() -> bool {
 }
 
 fn nix_eval_hash(sexpr_nix_literal: &str) -> Option<String> {
-    let script_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/cross_lang/sexpr.nix");
+    let script_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cross_lang/sexpr.nix");
 
     let out = Command::new("nix-instantiate")
         .args([
@@ -141,8 +141,8 @@ fn pure_nix_reference_agrees_with_frozen_vectors() {
 
 #[test]
 fn nix_reference_file_exists_and_looks_right() {
-    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/cross_lang/sexpr.nix");
+    let script =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cross_lang/sexpr.nix");
     let contents = std::fs::read_to_string(&script).expect("sexpr.nix must exist");
     assert!(contents.contains("builtins.hashString \"blake3\""));
     assert!(contents.contains("escapeString"));

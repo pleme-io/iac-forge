@@ -439,10 +439,7 @@ mod tests {
             values: vec!["a".to_string()],
             underlying: Box::new(FieldType::String),
         };
-        assert_eq!(
-            openapi_to_iac(&ft, Some("int")),
-            IacType::Integer
-        );
+        assert_eq!(openapi_to_iac(&ft, Some("int")), IacType::Integer);
     }
 
     #[test]

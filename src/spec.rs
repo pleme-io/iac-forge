@@ -1443,9 +1443,18 @@ id_field = "id"
 "#;
         let spec = ResourceSpec::from_toml(toml_str).expect("parse");
         assert_eq!(spec.read_mapping.len(), 3);
-        assert_eq!(spec.read_mapping.get("response_name"), Some(&"name".to_string()));
-        assert_eq!(spec.read_mapping.get("response_value"), Some(&"value".to_string()));
-        assert_eq!(spec.read_mapping.get("response_count"), Some(&"count".to_string()));
+        assert_eq!(
+            spec.read_mapping.get("response_name"),
+            Some(&"name".to_string())
+        );
+        assert_eq!(
+            spec.read_mapping.get("response_value"),
+            Some(&"value".to_string())
+        );
+        assert_eq!(
+            spec.read_mapping.get("response_count"),
+            Some(&"count".to_string())
+        );
     }
 
     #[test]

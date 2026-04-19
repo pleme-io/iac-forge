@@ -185,7 +185,11 @@ impl std::fmt::Display for IacAttribute {
             "{}: {} ({})",
             self.canonical_name,
             self.iac_type,
-            if self.required { "required" } else { "optional" }
+            if self.required {
+                "required"
+            } else {
+                "optional"
+            }
         )
     }
 }
@@ -313,7 +317,12 @@ pub struct IacResource {
 
 impl std::fmt::Display for IacResource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "resource<{}> ({} attrs)", self.name, self.attributes.len())
+        write!(
+            f,
+            "resource<{}> ({} attrs)",
+            self.name,
+            self.attributes.len()
+        )
     }
 }
 
@@ -348,7 +357,12 @@ pub struct IacDataSource {
 
 impl std::fmt::Display for IacDataSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "data_source<{}> ({} attrs)", self.name, self.attributes.len())
+        write!(
+            f,
+            "data_source<{}> ({} attrs)",
+            self.name,
+            self.attributes.len()
+        )
     }
 }
 
@@ -664,8 +678,7 @@ mod tests {
                 TestAttributeBuilder::new("computed_id", IacType::String)
                     .computed()
                     .build(),
-                TestAttributeBuilder::new("tags", IacType::List(Box::new(IacType::String)))
-                    .build(),
+                TestAttributeBuilder::new("tags", IacType::List(Box::new(IacType::String))).build(),
             ],
             identity: IdentityInfo {
                 id_field: "name".to_string(),
@@ -1143,16 +1156,18 @@ mod tests {
             ],
         };
         let inputs = ds.input_attributes();
-        assert_eq!(inputs.len(), 1, "optional+computed should be an input for data source");
+        assert_eq!(
+            inputs.len(),
+            1,
+            "optional+computed should be an input for data source"
+        );
     }
 
     #[test]
     fn iac_type_clone_equality() {
         let original = IacType::Object {
             name: "Config".to_string(),
-            fields: vec![
-                crate::testing::TestAttributeBuilder::new("k", IacType::String).build(),
-            ],
+            fields: vec![crate::testing::TestAttributeBuilder::new("k", IacType::String).build()],
         };
         let cloned = original.clone();
         assert_eq!(original, cloned);
@@ -1225,7 +1240,10 @@ mod tests {
             skip_fields: vec!["token".to_string()],
             platform_config: {
                 let mut m = BTreeMap::new();
-                m.insert("terraform".to_string(), toml::Value::String("sdk".to_string()));
+                m.insert(
+                    "terraform".to_string(),
+                    toml::Value::String("sdk".to_string()),
+                );
                 m
             },
         };
@@ -1367,7 +1385,13 @@ mod tests {
         assert!(!IacType::List(Box::new(IacType::String)).is_scalar());
         assert!(!IacType::Set(Box::new(IacType::String)).is_scalar());
         assert!(!IacType::Map(Box::new(IacType::String)).is_scalar());
-        assert!(!IacType::Object { name: "X".into(), fields: vec![] }.is_scalar());
+        assert!(
+            !IacType::Object {
+                name: "X".into(),
+                fields: vec![]
+            }
+            .is_scalar()
+        );
         assert!(!IacType::Any.is_scalar());
     }
 
@@ -1376,7 +1400,13 @@ mod tests {
         assert!(IacType::List(Box::new(IacType::String)).is_composite());
         assert!(IacType::Set(Box::new(IacType::Integer)).is_composite());
         assert!(IacType::Map(Box::new(IacType::Boolean)).is_composite());
-        assert!(IacType::Object { name: "X".into(), fields: vec![] }.is_composite());
+        assert!(
+            IacType::Object {
+                name: "X".into(),
+                fields: vec![]
+            }
+            .is_composite()
+        );
         assert!(!IacType::String.is_composite());
         assert!(!IacType::Integer.is_composite());
         assert!(!IacType::Any.is_composite());

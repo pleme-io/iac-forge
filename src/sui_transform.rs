@@ -83,8 +83,7 @@ pub fn apply_sui_transform(
     let source = format!("({expression}) {input_nix}");
 
     // Evaluate via sui's convenience entrypoint.
-    let value = sui_eval::eval(&source)
-        .map_err(|e| SuiTransformError::Eval(format!("{e:?}")))?;
+    let value = sui_eval::eval(&source).map_err(|e| SuiTransformError::Eval(format!("{e:?}")))?;
 
     // Force thunks and convert.
     let sexpr = value_to_sexpr(&value)?;
@@ -159,9 +158,7 @@ fn attrs_to_struct_form_sexpr(
 }
 
 /// Force a thunk to a concrete Value via sui's public forcing API.
-fn force_thunk(
-    thunk: &sui_eval::value::Thunk,
-) -> Result<Value, SuiTransformError> {
+fn force_thunk(thunk: &sui_eval::value::Thunk) -> Result<Value, SuiTransformError> {
     thunk
         .force(&|e, env| sui_eval::eval::eval_expr(e, env))
         .map_err(|e| SuiTransformError::Convert(format!("force thunk: {e:?}")))
@@ -189,10 +186,7 @@ mod tests {
 
     #[test]
     fn int_value_preserved() {
-        assert_eq!(
-            value_to_sexpr(&Value::Int(42)).unwrap(),
-            SExpr::Integer(42)
-        );
+        assert_eq!(value_to_sexpr(&Value::Int(42)).unwrap(), SExpr::Integer(42));
     }
 
     #[test]

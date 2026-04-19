@@ -468,7 +468,7 @@ mod tests {
             _r: &IacResource,
             _p: &IacProvider,
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
-            Ok(vec![GeneratedArtifact { 
+            Ok(vec![GeneratedArtifact {
                 path: "main.out".into(),
                 content: "body".into(),
                 kind: ArtifactKind::Resource,
@@ -510,7 +510,10 @@ mod tests {
     #[test]
     fn backend_is_a_morphism() {
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].path, "main.out");
@@ -519,13 +522,13 @@ mod tests {
     #[test]
     fn backend_morphism_proofs_hold_on_good_backend() {
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
-        let violations = <GoodBackend as ProvenMorphism<_, _>>::check_invariants(
-            &GoodBackend,
-            &input,
-            &out,
-        );
+        let violations =
+            <GoodBackend as ProvenMorphism<_, _>>::check_invariants(&GoodBackend, &input, &out);
         assert!(violations.is_empty(), "violations: {violations:?}");
     }
 
@@ -544,14 +547,14 @@ mod tests {
             _p: &IacProvider,
         ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
             Ok(vec![
-                GeneratedArtifact { 
+                GeneratedArtifact {
                     path: "dup.out".into(),
                     content: "a".into(),
                     kind: ArtifactKind::Resource,
                     source_hash: String::new(),
                     morphism_chain: Vec::new(),
                 },
-                GeneratedArtifact { 
+                GeneratedArtifact {
                     path: "dup.out".into(),
                     content: "b".into(),
                     kind: ArtifactKind::Resource,
@@ -587,15 +590,17 @@ mod tests {
     #[test]
     fn backend_morphism_catches_duplicate_paths() {
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <DupBackend as Morphism<_, _>>::apply(&DupBackend, &input);
-        let violations = <DupBackend as ProvenMorphism<_, _>>::check_invariants(
-            &DupBackend,
-            &input,
-            &out,
-        );
+        let violations =
+            <DupBackend as ProvenMorphism<_, _>>::check_invariants(&DupBackend, &input, &out);
         assert!(
-            violations.iter().any(|v| v.contains("duplicate artifact path")),
+            violations
+                .iter()
+                .any(|v| v.contains("duplicate artifact path")),
             "expected duplicate-path violation: {violations:?}",
         );
     }
@@ -646,7 +651,10 @@ mod tests {
     fn backend_morphism_populates_source_hash() {
         use crate::sexpr::ToSExpr;
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
         assert_eq!(out.len(), 1);
         let expected_hash = r.content_hash().to_hex();
@@ -657,7 +665,10 @@ mod tests {
     #[test]
     fn backend_morphism_populates_morphism_chain() {
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
         assert_eq!(out[0].morphism_chain.len(), 2);
         assert_eq!(out[0].morphism_chain[0], "Backend::good");
@@ -670,8 +681,12 @@ mod tests {
         // must not overwrite it.
         struct PreSetBackend;
         impl Backend for PreSetBackend {
-            fn platform(&self) -> &str { "preset" }
-            fn naming(&self) -> &dyn NamingConvention { &GoodNaming }
+            fn platform(&self) -> &str {
+                "preset"
+            }
+            fn naming(&self) -> &dyn NamingConvention {
+                &GoodNaming
+            }
             fn generate_resource(
                 &self,
                 _r: &IacResource,
@@ -685,13 +700,35 @@ mod tests {
                     morphism_chain: vec!["custom".into()],
                 }])
             }
-            fn generate_data_source(&self, _d: &IacDataSource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
-            fn generate_provider(&self, _p: &IacProvider, _r: &[IacResource], _d: &[IacDataSource]) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
-            fn generate_test(&self, _r: &IacResource, _p: &IacProvider) -> Result<Vec<GeneratedArtifact>, IacForgeError> { Ok(vec![]) }
+            fn generate_data_source(
+                &self,
+                _d: &IacDataSource,
+                _p: &IacProvider,
+            ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+                Ok(vec![])
+            }
+            fn generate_provider(
+                &self,
+                _p: &IacProvider,
+                _r: &[IacResource],
+                _d: &[IacDataSource],
+            ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+                Ok(vec![])
+            }
+            fn generate_test(
+                &self,
+                _r: &IacResource,
+                _p: &IacProvider,
+            ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+                Ok(vec![])
+            }
         }
 
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <PreSetBackend as Morphism<_, _>>::apply(&PreSetBackend, &input);
         assert_eq!(out[0].source_hash, "manually-set");
         assert_eq!(out[0].morphism_chain, vec!["custom".to_string()]);
@@ -701,7 +738,10 @@ mod tests {
     fn backend_morphism_source_hash_is_deterministic() {
         // Same IR should always yield the same source hash.
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let a = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
         let b = <GoodBackend as Morphism<_, _>>::apply(&GoodBackend, &input);
         assert_eq!(a[0].source_hash, b[0].source_hash);
@@ -714,11 +754,17 @@ mod tests {
         let r2 = crate::testing::test_resource("gadget");
         let out1 = <GoodBackend as Morphism<_, _>>::apply(
             &GoodBackend,
-            &ResourceInput { resource: &r1, provider: &p },
+            &ResourceInput {
+                resource: &r1,
+                provider: &p,
+            },
         );
         let out2 = <GoodBackend as Morphism<_, _>>::apply(
             &GoodBackend,
-            &ResourceInput { resource: &r2, provider: &p },
+            &ResourceInput {
+                resource: &r2,
+                provider: &p,
+            },
         );
         assert_ne!(out1[0].source_hash, out2[0].source_hash);
     }
@@ -726,13 +772,13 @@ mod tests {
     #[test]
     fn backend_morphism_catches_empty_artifact_list() {
         let (r, p) = sample_input();
-        let input = ResourceInput { resource: &r, provider: &p };
+        let input = ResourceInput {
+            resource: &r,
+            provider: &p,
+        };
         let out = <EmptyBackend as Morphism<_, _>>::apply(&EmptyBackend, &input);
-        let violations = <EmptyBackend as ProvenMorphism<_, _>>::check_invariants(
-            &EmptyBackend,
-            &input,
-            &out,
-        );
+        let violations =
+            <EmptyBackend as ProvenMorphism<_, _>>::check_invariants(&EmptyBackend, &input, &out);
         assert!(
             violations.iter().any(|v| v.contains("empty artifact list")),
             "expected empty-list violation: {violations:?}",
