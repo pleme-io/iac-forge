@@ -67,26 +67,13 @@ impl ContentHash {
     /// Lowercase hex string (64 chars).
     #[must_use]
     pub fn to_hex(&self) -> String {
-        let mut out = String::with_capacity(64);
-        for b in &self.0 {
-            out.push(hex_nibble(b >> 4));
-            out.push(hex_nibble(b & 0xF));
-        }
-        out
+        crate::hex::encode(&self.0)
     }
 }
 
 impl fmt::Display for ContentHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.to_hex())
-    }
-}
-
-fn hex_nibble(n: u8) -> char {
-    match n {
-        0..=9 => (b'0' + n) as char,
-        10..=15 => (b'a' + (n - 10)) as char,
-        _ => unreachable!("nibble must be 0..=15"),
     }
 }
 

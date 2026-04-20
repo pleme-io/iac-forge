@@ -10,6 +10,8 @@ pub mod backend;
 pub mod error;
 /// Fleet: named collection of IacResource values with composite hashing.
 pub mod fleet;
+/// Hex encode/decode helpers shared across sexpr consumers.
+pub mod hex;
 /// Platform-independent intermediate representation (IR).
 pub mod ir;
 /// Structure-preserving maps with composable proofs.
