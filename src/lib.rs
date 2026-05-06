@@ -10,6 +10,10 @@ pub mod backend;
 pub mod error;
 /// Fleet: named collection of IacResource values with composite hashing.
 pub mod fleet;
+/// Typed Go AST + printer — the structured emission surface every
+/// backend that produces Go source must build through (no `format!()`
+/// strings of Go syntax allowed).
+pub mod goast;
 /// Hex encode/decode helpers shared across sexpr consumers.
 pub mod hex;
 /// Platform-independent intermediate representation (IR).
