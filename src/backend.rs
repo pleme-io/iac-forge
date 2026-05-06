@@ -18,6 +18,25 @@ pub enum ArtifactKind {
     Signature,
     Module,
     Metadata,
+    /// Reconciler / state-machine code that drives a resource between
+    /// its declared spec and observed cluster state. Emitted by the
+    /// Crossplane backend (Go controllers implementing the
+    /// `crossplane-runtime` ExternalClient interface) and any future
+    /// backend that needs a runtime control loop alongside the schema.
+    Controller,
+    /// `ProviderConfig` CRD authoring surface — the typed contract a
+    /// cluster admin uses to plug credentials / endpoints / per-tenant
+    /// settings into a provider. Distinct from `Provider` (which is the
+    /// provider-level registration code) because `ProviderConfig` is
+    /// authored per-cluster, not per-codegen-run, and follows a
+    /// platform-specific convention (e.g., Crossplane's `ProviderConfig`
+    /// kind under `<group>.crossplane.io`).
+    ProviderConfig,
+    /// Helm chart deliverable — Chart.yaml, templates/, values.yaml,
+    /// and any chart-level RBAC / namespacing scaffolding. Emitted by
+    /// backends that ship their generated artifacts as a Helm chart
+    /// (Crossplane provider chart, Helm-rendered IaC, etc.).
+    HelmChart,
 }
 
 impl std::fmt::Display for ArtifactKind {
@@ -31,6 +50,9 @@ impl std::fmt::Display for ArtifactKind {
             Self::Signature => write!(f, "signature"),
             Self::Module => write!(f, "module"),
             Self::Metadata => write!(f, "metadata"),
+            Self::Controller => write!(f, "controller"),
+            Self::ProviderConfig => write!(f, "provider_config"),
+            Self::HelmChart => write!(f, "helm_chart"),
         }
     }
 }
@@ -48,6 +70,9 @@ impl std::str::FromStr for ArtifactKind {
             "signature" => Ok(Self::Signature),
             "module" => Ok(Self::Module),
             "metadata" => Ok(Self::Metadata),
+            "controller" => Ok(Self::Controller),
+            "provider_config" => Ok(Self::ProviderConfig),
+            "helm_chart" => Ok(Self::HelmChart),
             _ => Err(IacForgeError::ValidationError(format!(
                 "unknown artifact kind: {s}"
             ))),
@@ -259,6 +284,23 @@ mod tests {
         assert_eq!(ArtifactKind::Provider.to_string(), "provider");
         assert_eq!(ArtifactKind::Test.to_string(), "test");
         assert_eq!(ArtifactKind::Schema.to_string(), "schema");
+        assert_eq!(ArtifactKind::Controller.to_string(), "controller");
+        assert_eq!(ArtifactKind::ProviderConfig.to_string(), "provider_config");
+        assert_eq!(ArtifactKind::HelmChart.to_string(), "helm_chart");
+    }
+
+    #[test]
+    fn artifact_kind_round_trip_for_new_variants() {
+        for s in ["controller", "provider_config", "helm_chart"] {
+            let kind: ArtifactKind = s.parse().expect("parse");
+            assert_eq!(kind.to_string(), s);
+        }
+    }
+
+    #[test]
+    fn artifact_kind_unknown_string_is_error() {
+        let err: Result<ArtifactKind, _> = "not_a_kind".parse();
+        assert!(err.is_err());
     }
 
     /// Minimal backend for testing default method implementations.
