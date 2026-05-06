@@ -34,6 +34,8 @@ pub mod remediation;
 pub mod render_cache;
 /// Resolver: spec + `OpenAPI` → IR.
 pub mod resolve;
+/// Per-language SDK naming conventions for emitted backends.
+pub mod sdk_naming;
 /// Canonical s-expression interchange for IR values.
 pub mod sexpr;
 /// Semantic diff over sexpr trees.
