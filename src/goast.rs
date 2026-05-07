@@ -330,6 +330,10 @@ pub enum GoExpr {
     /// `[]T{e1, e2, ...}` — typed slice literal. Use `Composite` for
     /// struct literals; this variant is specifically for slices.
     SliceLit { elem_type: GoType, elements: Vec<GoExpr> },
+    /// A type used in expression position — primarily as an argument to
+    /// builtins like `make([]T, n)`, `new(T)`, or `reflect.TypeOf(T)`.
+    /// Renders as the type alone (no `{}` or other punctuation).
+    TypeExpr(GoType),
 }
 
 impl GoExpr {
@@ -1027,6 +1031,9 @@ impl GoPrinter {
                 self.write(")");
                 let _ = with_ok; // The ", ok" is rendered by ShortDecl, not here
             }
+            GoExpr::TypeExpr(ty) => {
+                self.print_type(ty);
+            }
             GoExpr::SliceLit { elem_type, elements } => {
                 self.write("[]");
                 self.print_type(elem_type);
@@ -1411,6 +1418,34 @@ mod tests {
         p.print_type(&ty);
         let s = p.finish();
         assert_eq!(s, "func(int, string) error");
+    }
+
+    #[test]
+    fn type_expr_renders_as_bare_type() {
+        // Used inside `make([]Foo, n)` and similar builtins.
+        let mut body = GoBlock::new();
+        body.push(GoStmt::ShortDecl {
+            names: vec!["xs".to_string()],
+            values: vec![GoExpr::call(
+                GoExpr::ident("make"),
+                vec![
+                    GoExpr::TypeExpr(GoType::slice(GoType::named("Foo"))),
+                    GoExpr::ident("n"),
+                ],
+            )],
+        });
+        let mut file = GoFile::new("p");
+        file.decls.push(GoDecl::Func(GoFuncDecl {
+            name: "F".to_string(),
+            doc: None,
+            recv: None,
+            params: vec![],
+            returns: vec![],
+            body,
+        }));
+        let s = render(&file);
+        assert!(s.contains("make([]Foo, n)"));
+        assert!(!s.contains("make([]Foo{}, n)"), "TypeExpr must not emit slice-literal braces");
     }
 
     #[test]
