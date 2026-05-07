@@ -215,6 +215,14 @@ pub enum GoType {
     Map(Box<GoType>, Box<GoType>),
     /// `interface{}`.
     EmptyInterface,
+    /// `func(P1, P2, ...) (R1, R2, ...)` as a *type* — used as the
+    /// element type of a slice of function values, the value type of a
+    /// map, etc. Parameter names are not represented because Go function
+    /// types don't carry parameter names structurally.
+    FuncSignature {
+        params: Vec<GoType>,
+        returns: Vec<GoType>,
+    },
 }
 
 impl GoType {
@@ -282,6 +290,16 @@ pub enum GoStmt {
     /// `<block>` — a nested block (for else branches that are blocks
     /// rather than if-chains).
     Block(GoBlock),
+    /// `for k, v := range expr { body }`. Either of `key` / `value` may
+    /// be `None`; both `None` is `for range expr {...}` (Go 1.22+
+    /// equivalent of `for _ = range expr`). The iteration variables are
+    /// declared with `:=`.
+    ForRange {
+        key: Option<String>,
+        value: Option<String>,
+        range: GoExpr,
+        body: GoBlock,
+    },
 }
 
 // ── Expressions ───────────────────────────────────────────────────────────
@@ -309,6 +327,9 @@ pub enum GoExpr {
     /// When `with_ok=true`, the parent must be a `ShortDecl` with two
     /// names (the second is the bool); the printer enforces this.
     TypeAssert { x: Box<GoExpr>, ty: GoType, with_ok: bool },
+    /// `[]T{e1, e2, ...}` — typed slice literal. Use `Composite` for
+    /// struct literals; this variant is specifically for slices.
+    SliceLit { elem_type: GoType, elements: Vec<GoExpr> },
 }
 
 impl GoExpr {
@@ -684,6 +705,31 @@ impl GoPrinter {
                 self.print_type(v);
             }
             GoType::EmptyInterface => self.write("interface{}"),
+            GoType::FuncSignature { params, returns } => {
+                self.write("func(");
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        self.write(", ");
+                    }
+                    self.print_type(p);
+                }
+                self.write(")");
+                if !returns.is_empty() {
+                    if returns.len() == 1 {
+                        self.write(" ");
+                        self.print_type(&returns[0]);
+                    } else {
+                        self.write(" (");
+                        for (i, r) in returns.iter().enumerate() {
+                            if i > 0 {
+                                self.write(", ");
+                            }
+                            self.print_type(r);
+                        }
+                        self.write(")");
+                    }
+                }
+            }
         }
     }
 
@@ -853,6 +899,36 @@ impl GoPrinter {
                 self.print_block(b);
                 self.newline();
             }
+            GoStmt::ForRange { key, value, range, body } => {
+                self.write_indent();
+                self.write("for ");
+                match (key.as_deref(), value.as_deref()) {
+                    (Some(k), Some(v)) => {
+                        self.write(k);
+                        self.write(", ");
+                        self.write(v);
+                        self.write(" := range ");
+                    }
+                    (Some(k), None) => {
+                        self.write(k);
+                        self.write(" := range ");
+                    }
+                    (None, Some(v)) => {
+                        // Go syntax: for _, v := range x
+                        self.write("_, ");
+                        self.write(v);
+                        self.write(" := range ");
+                    }
+                    (None, None) => {
+                        // Go 1.22+: for range x {...}
+                        self.write("range ");
+                    }
+                }
+                self.print_expr(range);
+                self.write(" ");
+                self.print_block(body);
+                self.newline();
+            }
         }
     }
 
@@ -950,6 +1026,26 @@ impl GoPrinter {
                 self.print_type(ty);
                 self.write(")");
                 let _ = with_ok; // The ", ok" is rendered by ShortDecl, not here
+            }
+            GoExpr::SliceLit { elem_type, elements } => {
+                self.write("[]");
+                self.print_type(elem_type);
+                self.write("{");
+                if elements.is_empty() {
+                    // Empty slice stays one-line: `[]T{}`
+                } else {
+                    self.newline();
+                    self.indent += 1;
+                    for e in elements {
+                        self.write_indent();
+                        self.print_expr(e);
+                        self.write(",");
+                        self.newline();
+                    }
+                    self.indent -= 1;
+                    self.write_indent();
+                }
+                self.write("}");
             }
         }
     }
@@ -1214,6 +1310,118 @@ mod tests {
         }));
         let s = render(&file);
         assert!(s.contains("return \"expected \\\"quote\\\"\""));
+    }
+
+    #[test]
+    fn slice_literal_prints_with_typed_element_type() {
+        let lit = GoExpr::SliceLit {
+            elem_type: GoType::FuncSignature {
+                params: vec![GoType::qualified("ctrl", "Manager"), GoType::qualified("time", "Duration")],
+                returns: vec![GoType::named("error")],
+            },
+            elements: vec![
+                GoExpr::Selector {
+                    recv: Box::new(GoExpr::ident("foo")),
+                    sel: "Setup".to_string(),
+                },
+                GoExpr::Selector {
+                    recv: Box::new(GoExpr::ident("bar")),
+                    sel: "Setup".to_string(),
+                },
+            ],
+        };
+        let mut body = GoBlock::new();
+        body.push(GoStmt::ShortDecl {
+            names: vec!["xs".to_string()],
+            values: vec![lit],
+        });
+        let mut file = GoFile::new("p");
+        file.decls.push(GoDecl::Func(GoFuncDecl {
+            name: "F".to_string(),
+            doc: None,
+            recv: None,
+            params: vec![],
+            returns: vec![],
+            body,
+        }));
+        let s = render(&file);
+        assert!(s.contains("[]func(ctrl.Manager, time.Duration) error{"));
+        assert!(s.contains("\t\tfoo.Setup,"));
+        assert!(s.contains("\t\tbar.Setup,"));
+    }
+
+    #[test]
+    fn for_range_prints_with_two_iter_vars() {
+        let mut for_body = GoBlock::new();
+        for_body.push(GoStmt::Expr(GoExpr::call(
+            GoExpr::ident("use"),
+            vec![GoExpr::ident("v")],
+        )));
+        let stmt = GoStmt::ForRange {
+            key: Some("i".to_string()),
+            value: Some("v".to_string()),
+            range: GoExpr::ident("xs"),
+            body: for_body,
+        };
+        let mut block = GoBlock::new();
+        block.push(stmt);
+        let mut file = GoFile::new("p");
+        file.decls.push(GoDecl::Func(GoFuncDecl {
+            name: "F".to_string(),
+            doc: None,
+            recv: None,
+            params: vec![],
+            returns: vec![],
+            body: block,
+        }));
+        let s = render(&file);
+        assert!(s.contains("for i, v := range xs {"));
+    }
+
+    #[test]
+    fn for_range_with_only_value_uses_underscore_for_index() {
+        let stmt = GoStmt::ForRange {
+            key: None,
+            value: Some("s".to_string()),
+            range: GoExpr::ident("setups"),
+            body: GoBlock::new(),
+        };
+        let mut block = GoBlock::new();
+        block.push(stmt);
+        let mut file = GoFile::new("p");
+        file.decls.push(GoDecl::Func(GoFuncDecl {
+            name: "F".to_string(),
+            doc: None,
+            recv: None,
+            params: vec![],
+            returns: vec![],
+            body: block,
+        }));
+        let s = render(&file);
+        assert!(s.contains("for _, s := range setups {"));
+    }
+
+    #[test]
+    fn func_signature_type_prints_correctly() {
+        let ty = GoType::FuncSignature {
+            params: vec![GoType::named("int"), GoType::named("string")],
+            returns: vec![GoType::named("error")],
+        };
+        let mut p = GoPrinter::new();
+        p.print_type(&ty);
+        let s = p.finish();
+        assert_eq!(s, "func(int, string) error");
+    }
+
+    #[test]
+    fn func_signature_with_multi_return_uses_parens() {
+        let ty = GoType::FuncSignature {
+            params: vec![GoType::named("int")],
+            returns: vec![GoType::named("string"), GoType::named("error")],
+        };
+        let mut p = GoPrinter::new();
+        p.print_type(&ty);
+        assert_eq!(p.finish(), "func(int) (string, error)");
     }
 
     #[test]
