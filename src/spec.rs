@@ -37,13 +37,37 @@ impl ConfigLoader for DataSourceSpec {}
 impl ConfigLoader for ProviderSpec {}
 
 /// Top-level resource specification loaded from TOML.
+///
+/// Two flavours are supported:
+/// - **CRUD** (default): `kind = "crud"` or absent — requires `[crud]` +
+///   `[identity]` tables. Resolved via [`crate::resolve_resource`].
+/// - **Action** (RPC-style): `kind = "action"` — requires `[action]`
+///   table; MUST NOT have `[crud]`/`[identity]`. Resolved via
+///   [`crate::resolve_action`].
+///
+/// Both `crud` and `identity` default to empty placeholders so an action
+/// TOML can omit them entirely. Use [`ResourceSpec::is_action`] before
+/// dispatching to the CRUD resolver — calling `resolve_resource` on an
+/// action spec will fail loudly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceSpec {
-    /// Resource metadata (name, description, category).
+    /// Resource metadata (name, description, category, kind).
     pub resource: ResourceMeta,
     /// CRUD operation mappings.
+    ///
+    /// Defaults to an empty placeholder so `kind = "action"` specs (which
+    /// have no `[crud]` table) parse cleanly. CRUD callers must verify
+    /// via [`ResourceSpec::is_action`] before reading the empty struct.
+    #[serde(default)]
     pub crud: CrudMapping,
+    /// Action mapping for RPC-style endpoints. Required when `kind = "action"`.
+    #[serde(default)]
+    pub action: Option<ActionMapping>,
     /// Identity and import configuration.
+    ///
+    /// Defaults to an empty placeholder so action specs parse without an
+    /// `[identity]` table.
+    #[serde(default)]
     pub identity: IdentityConfig,
     /// Per-field overrides (skip, computed, sensitive, etc.).
     #[serde(default)]
@@ -51,6 +75,50 @@ pub struct ResourceSpec {
     /// Mapping from API response JSON paths to field names.
     #[serde(default)]
     pub read_mapping: BTreeMap<String, String>,
+}
+
+impl ResourceSpec {
+    /// Whether this spec describes an action (RPC-style) resource.
+    ///
+    /// Action specs MUST have `kind = "action"` AND a populated `[action]`
+    /// table. CRUD specs (kind absent or `"crud"`) return `false`.
+    #[must_use]
+    pub fn is_action(&self) -> bool {
+        matches!(self.resource.kind.as_deref(), Some("action"))
+    }
+}
+
+/// Action (RPC-style) endpoint mapping.
+///
+/// Used for endpoints like `/uid-generate-token`, `/encrypt`, and similar
+/// one-shot calls that don't fit `present/absent` semantics. Encoded under
+/// the `[action]` table in an action TOML.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionMapping {
+    /// API path (e.g. `/uid-generate-token`).
+    pub endpoint: String,
+    /// Request schema (camelCase, OpenAPI form — e.g. `uidGenerateToken`).
+    pub schema: String,
+    /// Optional response schema name. When `None`, generated modules echo
+    /// the raw response dict back to the caller.
+    #[serde(default)]
+    pub response_schema: Option<String>,
+    /// Whether the action mutates server state. Defaults to `true` when
+    /// not specified; list/get-style ops should set `false`.
+    #[serde(default)]
+    pub mutating: Option<bool>,
+    /// Response fields to mask (`***`) before echoing back to Ansible.
+    /// Useful for `token`, `ciphertext`, `private_key`, etc.
+    #[serde(default)]
+    pub sensitive_response_fields: Vec<String>,
+    /// Optional SDK method-name override.
+    ///
+    /// Some endpoints (like `/encrypt-batch`) reuse a request body schema
+    /// (`BatchEncryptionRequestLine`) that doesn't match the SDK method
+    /// derived from the schema name. Set this to the actual SDK method
+    /// (e.g. `"encrypt_batch"`) to bypass the schema-based derivation.
+    #[serde(default)]
+    pub sdk_method: Option<String>,
 }
 
 /// Resource metadata.
@@ -64,10 +132,17 @@ pub struct ResourceMeta {
     /// Category grouping (e.g., "secret", "auth").
     #[serde(default)]
     pub category: String,
+    /// Resource flavour: `"crud"` (default) or `"action"`.
+    ///
+    /// `None` is equivalent to `"crud"` for backward compatibility with
+    /// the 157 pre-existing CRUD TOMLs. Lives on `ResourceMeta` because
+    /// it sits under the `[resource]` TOML table alongside name/category.
+    #[serde(default)]
+    pub kind: Option<String>,
 }
 
 /// Maps CRUD operations to API endpoints and schemas.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CrudMapping {
     /// API path for the create operation.
     pub create_endpoint: String,
@@ -93,7 +168,7 @@ pub struct CrudMapping {
 }
 
 /// Identity and import configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IdentityConfig {
     /// Primary identifier field name.
     pub id_field: String,
@@ -200,10 +275,20 @@ impl ResourceSpec {
 
     /// Validate the resource spec against an `OpenAPI` spec.
     ///
+    /// Dispatches on [`ResourceSpec::is_action`]:
+    /// - CRUD specs validate create/read/delete (+ optional update / read
+    ///   response) schemas and the create endpoint path.
+    /// - Action specs validate the action endpoint + request schema (and
+    ///   the optional response schema).
+    ///
     /// # Errors
     ///
     /// Returns validation errors if schemas are missing or endpoints don't exist.
     pub fn validate(&self, api: &openapi_forge::Spec) -> Result<(), IacForgeError> {
+        if self.is_action() {
+            return self.validate_action(api);
+        }
+
         api.schema(&self.crud.create_schema)
             .map_err(|_| IacForgeError::SchemaNotFound(self.crud.create_schema.clone()))?;
 
@@ -227,6 +312,32 @@ impl ResourceSpec {
             return Err(IacForgeError::MissingEndpoint {
                 resource: self.resource.name.clone(),
                 endpoint: self.crud.create_endpoint.clone(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn validate_action(&self, api: &openapi_forge::Spec) -> Result<(), IacForgeError> {
+        let action = self.action.as_ref().ok_or_else(|| {
+            IacForgeError::ValidationError(format!(
+                "resource '{}' has kind = \"action\" but no [action] table",
+                self.resource.name
+            ))
+        })?;
+
+        api.schema(&action.schema)
+            .map_err(|_| IacForgeError::SchemaNotFound(action.schema.clone()))?;
+
+        if let Some(ref response_schema) = action.response_schema {
+            api.schema(response_schema)
+                .map_err(|_| IacForgeError::SchemaNotFound(response_schema.clone()))?;
+        }
+
+        if api.endpoint_by_path(&action.endpoint).is_none() {
+            return Err(IacForgeError::MissingEndpoint {
+                resource: self.resource.name.clone(),
+                endpoint: action.endpoint.clone(),
             });
         }
 
@@ -416,6 +527,59 @@ delete_protection = { type_override = "bool" }
         assert_eq!(spec.crud.create_endpoint, "/create-secret");
         assert!(spec.fields.get("token").unwrap().skip);
         assert_eq!(spec.identity.force_new_fields, vec!["name"]);
+        assert!(!spec.is_action());
+        assert!(spec.action.is_none());
+    }
+
+    #[test]
+    fn parse_action_spec() {
+        let toml_str = r#"
+[resource]
+name = "akeyless_uid_generate_token"
+description = "Generate a Universal Identity authentication token"
+category = "uid"
+kind = "action"
+
+[action]
+endpoint = "/uid-generate-token"
+schema = "uidGenerateToken"
+response_schema = "uidGenerateTokenOutput"
+mutating = true
+sensitive_response_fields = ["token"]
+
+[fields]
+"auth-method-name" = { required = true }
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse");
+        assert!(spec.is_action());
+        let action = spec.action.expect("action table");
+        assert_eq!(action.endpoint, "/uid-generate-token");
+        assert_eq!(action.schema, "uidGenerateToken");
+        assert_eq!(action.response_schema.as_deref(), Some("uidGenerateTokenOutput"));
+        assert_eq!(action.mutating, Some(true));
+        assert_eq!(action.sensitive_response_fields, vec!["token".to_string()]);
+    }
+
+    #[test]
+    fn parse_action_spec_minimal() {
+        let toml_str = r#"
+[resource]
+name = "akeyless_uid_list_children"
+description = "List UID children"
+category = "uid"
+kind = "action"
+
+[action]
+endpoint = "/uid-list-children"
+schema = "uidListChildren"
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse");
+        assert!(spec.is_action());
+        let action = spec.action.expect("action table");
+        assert_eq!(action.endpoint, "/uid-list-children");
+        assert!(action.response_schema.is_none());
+        assert!(action.mutating.is_none());
+        assert!(action.sensitive_response_fields.is_empty());
     }
 
     #[test]
@@ -517,15 +681,41 @@ api_version = "v1alpha1"
     }
 
     #[test]
-    fn config_loader_from_toml_missing_required_fields() {
-        // ResourceSpec requires [resource], [crud], [identity] sections
+    fn config_loader_from_toml_missing_resource_fails() {
+        // ResourceSpec still requires [resource]. [crud] and [identity] now
+        // default to empty placeholders so action specs (no [crud]) parse.
         let result = ResourceSpec::from_toml(
+            r#"
+[crud]
+create_endpoint = "/x"
+create_schema = "X"
+read_endpoint = "/x"
+read_schema = "X"
+delete_endpoint = "/x"
+delete_schema = "X"
+
+[identity]
+id_field = "id"
+"#,
+        );
+        assert!(result.is_err(), "missing [resource] section should fail");
+    }
+
+    #[test]
+    fn crud_spec_without_crud_table_parses_but_resolves_emptily() {
+        // After action-style introduction, missing [crud]/[identity] no longer
+        // errors at parse time — the validator + resolver enforce semantic
+        // constraints. This documents the deserialization behaviour.
+        let spec = ResourceSpec::from_toml(
             r#"
 [resource]
 name = "test"
 "#,
-        );
-        assert!(result.is_err(), "missing [crud] section should fail");
+        )
+        .expect("parse");
+        assert!(spec.crud.create_endpoint.is_empty());
+        assert!(spec.identity.id_field.is_empty());
+        assert!(!spec.is_action());
     }
 
     #[test]

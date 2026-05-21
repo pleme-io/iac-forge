@@ -4,7 +4,8 @@ use openapi_forge::{Field, Spec};
 
 use crate::error::IacForgeError;
 use crate::ir::{
-    AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IdentityInfo,
+    AuthInfo, CrudInfo, IacAction, IacAttribute, IacDataSource, IacProvider, IacResource,
+    IdentityInfo,
 };
 use crate::naming::to_snake_case;
 use crate::spec::{DataSourceSpec, FieldOverride, ProviderDefaults, ProviderSpec, ResourceSpec};
@@ -96,6 +97,12 @@ pub fn resolve_resource(
     api: &Spec,
     defaults: &ProviderDefaults,
 ) -> Result<IacResource, IacForgeError> {
+    if resource.is_action() {
+        return Err(IacForgeError::ValidationError(format!(
+            "resource '{}' is kind = \"action\"; dispatch to resolve_action instead",
+            resource.resource.name
+        )));
+    }
     let create_fields = api.fields(&resource.crud.create_schema)?;
 
     let update_required: HashSet<String> =
@@ -150,6 +157,85 @@ pub fn resolve_resource(
         crud: CrudInfo::from(&resource.crud),
         attributes,
         identity: IdentityInfo::from(&resource.identity),
+        read_mapping: resource.read_mapping.clone(),
+    })
+}
+
+/// Resolve an action resource spec + `OpenAPI` spec into a platform-independent
+/// [`IacAction`].
+///
+/// Mirrors [`resolve_resource`] but draws the input attributes from the request
+/// body schema named in `spec.action.schema`. The `mutating` flag defaults to
+/// `true` when the TOML leaves it unspecified — see the action TOML schema in
+/// the project docs.
+///
+/// # Errors
+///
+/// Returns:
+/// - [`IacForgeError::ValidationError`] if `spec.is_action()` is `false` or
+///   the `[action]` table is missing.
+/// - [`IacForgeError::SchemaNotFound`] / [`IacForgeError::OpenApiError`] when
+///   the request schema can't be loaded from the `OpenAPI` spec.
+pub fn resolve_action(
+    spec: &ResourceSpec,
+    api: &Spec,
+    defaults: &ProviderDefaults,
+) -> Result<IacAction, IacForgeError> {
+    if !spec.is_action() {
+        return Err(IacForgeError::ValidationError(format!(
+            "resource '{}' has no kind = \"action\"; dispatch to resolve_resource instead",
+            spec.resource.name
+        )));
+    }
+    let action = spec.action.as_ref().ok_or_else(|| {
+        IacForgeError::ValidationError(format!(
+            "resource '{}' has kind = \"action\" but no [action] table",
+            spec.resource.name
+        ))
+    })?;
+
+    let request_fields = api.fields(&action.schema)?;
+
+    let skip_fields: HashSet<&str> = defaults.skip_fields.iter().map(String::as_str).collect();
+
+    // Action inputs aren't keyed by a TOML read_mapping — actions don't have
+    // a read step. Pass an empty map so build_attribute keeps read_path = None.
+    let reverse_mapping: BTreeMap<String, String> = BTreeMap::new();
+
+    let mut attributes = Vec::new();
+    for field in &request_fields {
+        if skip_fields.contains(field.name.as_str()) {
+            continue;
+        }
+        let override_cfg = spec.fields.get(&field.name);
+
+        if let Some(attr) = build_attribute(
+            field,
+            override_cfg,
+            // Actions have no force-replace semantics; the field has no
+            // longer-term identity for the runner to track.
+            &[],
+            &reverse_mapping,
+            // Treat each attribute as a resource input (required/optional
+            // honoured from OpenAPI), but never compute immutability.
+            true,
+            false,
+        ) {
+            attributes.push(attr);
+        }
+    }
+
+    Ok(IacAction {
+        name: spec.resource.name.clone(),
+        description: spec.resource.description.clone(),
+        category: spec.resource.category.clone(),
+        endpoint: action.endpoint.clone(),
+        schema: action.schema.clone(),
+        response_schema: action.response_schema.clone(),
+        mutating: action.mutating.unwrap_or(true),
+        sensitive_response_fields: action.sensitive_response_fields.clone(),
+        attributes,
+        sdk_method: action.sdk_method.clone(),
     })
 }
 
@@ -196,6 +282,7 @@ pub fn resolve_data_source(
         read_schema: ds.read.schema.clone(),
         read_response_schema: ds.read.response_schema.clone(),
         attributes,
+        read_mapping: ds.read_mapping.clone(),
     })
 }
 
@@ -382,6 +469,54 @@ components:
             .find(|a| a.canonical_name == "tags")
             .expect("tags");
         assert_eq!(tags.read_path, Some("item_tags".to_string()));
+    }
+
+    #[test]
+    fn resolve_resource_read_mapping_populates_field() {
+        let (resource, api) = make_test_spec();
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_resource(&resource, &api, &defaults).expect("resolve");
+
+        // The TOML stores json_response_key -> canonical_param_name.
+        assert_eq!(iac.read_mapping.get("item_name"), Some(&"name".to_string()));
+        assert_eq!(iac.read_mapping.get("item_tags"), Some(&"tags".to_string()));
+        assert_eq!(iac.read_mapping.len(), 2);
+    }
+
+    #[test]
+    fn resolve_data_source_read_mapping_populates_field() {
+        let toml_str = r#"
+[data_source]
+name = "mapped_ds"
+description = "DS with read mapping"
+
+[read]
+endpoint = "/read"
+schema = "ReadSchema"
+
+[read_mapping]
+"resp_name" = "name"
+"#;
+        let ds: DataSourceSpec = toml::from_str(toml_str).expect("parse");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: Test, version: "1.0" }
+paths: {}
+components:
+  schemas:
+    ReadSchema:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+"#;
+        let api = Spec::from_str(api_str).expect("parse");
+        let defaults = ProviderDefaults::default();
+        let iac = resolve_data_source(&ds, &api, &defaults).expect("resolve");
+
+        assert_eq!(iac.read_mapping.get("resp_name"), Some(&"name".to_string()));
+        assert_eq!(iac.read_mapping.len(), 1);
     }
 
     #[test]
@@ -2053,5 +2188,211 @@ skip_fields = ["token", "uid-token", "json"]
         let provider: ProviderSpec = toml::from_str(toml_str).expect("parse");
         let iac = resolve_provider(&provider);
         assert_eq!(iac.skip_fields, vec!["token", "uid-token", "json"]);
+    }
+
+    // ── resolve_action ──────────────────────────────────────────────
+
+    fn make_action_test_pair() -> (ResourceSpec, Spec) {
+        let toml_str = r#"
+[resource]
+name = "akeyless_uid_generate_token"
+description = "Generate a Universal Identity token"
+category = "uid"
+kind = "action"
+
+[action]
+endpoint = "/uid-generate-token"
+schema = "uidGenerateToken"
+response_schema = "uidGenerateTokenOutput"
+mutating = true
+sensitive_response_fields = ["token"]
+
+[fields]
+"auth-method-name" = { required = true }
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse spec");
+
+        let api_str = r#"
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /uid-generate-token:
+    post:
+      operationId: uidGenerateToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/uidGenerateToken'
+      responses:
+        "200":
+          description: ok
+components:
+  schemas:
+    uidGenerateToken:
+      type: object
+      required:
+        - auth-method-name
+      properties:
+        auth-method-name:
+          type: string
+          description: The universal identity auth method name
+        uid-token:
+          type: string
+          description: The universal identity token
+        token:
+          type: string
+    uidGenerateTokenOutput:
+      type: object
+      properties:
+        token:
+          type: string
+"#;
+        let api = Spec::from_str(api_str).expect("parse api");
+        (spec, api)
+    }
+
+    #[test]
+    fn resolve_action_basic() {
+        let (spec, api) = make_action_test_pair();
+        let defaults = ProviderDefaults {
+            skip_fields: vec!["token".into(), "json".into()],
+        };
+        let action = resolve_action(&spec, &api, &defaults).expect("resolve_action");
+        assert_eq!(action.name, "akeyless_uid_generate_token");
+        assert_eq!(action.endpoint, "/uid-generate-token");
+        assert_eq!(action.schema, "uidGenerateToken");
+        assert_eq!(action.response_schema.as_deref(), Some("uidGenerateTokenOutput"));
+        assert!(action.mutating);
+        assert_eq!(action.sensitive_response_fields, vec!["token".to_string()]);
+        // Skip filter dropped `token`; field overrides marked auth-method-name required.
+        let names: Vec<&str> = action
+            .attributes
+            .iter()
+            .map(|a| a.canonical_name.as_str())
+            .collect();
+        assert!(names.contains(&"auth_method_name"));
+        assert!(names.contains(&"uid_token"));
+        assert!(!names.contains(&"token"));
+        let amn = action
+            .attributes
+            .iter()
+            .find(|a| a.canonical_name == "auth_method_name")
+            .expect("auth_method_name attr");
+        assert!(amn.required);
+    }
+
+    #[test]
+    fn resolve_action_defaults_mutating_to_true() {
+        let toml_str = r#"
+[resource]
+name = "akeyless_uid_list_children"
+description = "List UID children"
+category = "uid"
+kind = "action"
+
+[action]
+endpoint = "/uid-list-children"
+schema = "uidListChildren"
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse spec");
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: t, version: "1.0" }
+paths:
+  /uid-list-children:
+    post:
+      operationId: uidListChildren
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    uidListChildren:
+      type: object
+      properties:
+        auth-method-name:
+          type: string
+"#;
+        let api = Spec::from_str(api_str).expect("parse api");
+        let defaults = ProviderDefaults::default();
+        let action = resolve_action(&spec, &api, &defaults).expect("resolve");
+        // mutating defaults to true when the TOML leaves it unspecified.
+        assert!(action.mutating);
+        assert!(action.sensitive_response_fields.is_empty());
+        assert!(action.response_schema.is_none());
+    }
+
+    #[test]
+    fn resolve_action_rejects_crud_spec() {
+        let toml_str = r#"
+[resource]
+name = "akeyless_static_secret"
+description = "Static secret"
+category = "secret"
+
+[crud]
+create_endpoint = "/create-secret"
+create_schema = "CreateSecret"
+read_endpoint = "/get-secret-value"
+read_schema = "GetSecretValue"
+delete_endpoint = "/delete-item"
+delete_schema = "DeleteItem"
+
+[identity]
+id_field = "name"
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse");
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: t, version: "1.0" }
+paths:
+  /noop:
+    post:
+      operationId: noop
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    Stub:
+      type: object
+"#;
+        let api = Spec::from_str(api_str).expect("parse api");
+        let err = resolve_action(&spec, &api, &ProviderDefaults::default()).unwrap_err();
+        assert!(format!("{err}").contains("no kind = \"action\""));
+    }
+
+    #[test]
+    fn resolve_resource_rejects_action_spec() {
+        let toml_str = r#"
+[resource]
+name = "akeyless_uid_generate_token"
+description = "Generate UID token"
+category = "uid"
+kind = "action"
+
+[action]
+endpoint = "/uid-generate-token"
+schema = "uidGenerateToken"
+"#;
+        let spec: ResourceSpec = toml::from_str(toml_str).expect("parse");
+        let api_str = r#"
+openapi: "3.0.0"
+info: { title: t, version: "1.0" }
+paths:
+  /noop:
+    post:
+      operationId: noop
+      responses:
+        "200": { description: ok }
+components:
+  schemas:
+    Stub:
+      type: object
+"#;
+        let api = Spec::from_str(api_str).expect("parse api");
+        let err = resolve_resource(&spec, &api, &ProviderDefaults::default()).unwrap_err();
+        assert!(format!("{err}").contains("kind = \"action\""));
     }
 }

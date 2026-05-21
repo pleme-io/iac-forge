@@ -313,6 +313,12 @@ pub struct IacResource {
     pub crud: CrudInfo,
     pub attributes: Vec<IacAttribute>,
     pub identity: IdentityInfo,
+    /// Mapping from API response JSON paths to canonical field names.
+    ///
+    /// Direction matches the TOML source: `json_response_key -> canonical_param_name`.
+    /// Used by backends to render an honest diff during update against a read response.
+    #[serde(default)]
+    pub read_mapping: std::collections::BTreeMap<String, String>,
 }
 
 impl std::fmt::Display for IacResource {
@@ -344,6 +350,66 @@ impl IacResource {
     }
 }
 
+/// A fully resolved RPC-style action in the platform-independent IR.
+///
+/// Actions are one-shot calls without create/read/update/delete semantics —
+/// e.g. `/uid-generate-token`, `/encrypt`, `/revoke-certificate`. Each
+/// action carries enough metadata for backends to emit an Ansible action
+/// module, a Terraform `*_action` resource, or any other one-shot wrapper.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IacAction {
+    /// Action identifier (e.g., `akeyless_uid_generate_token`).
+    pub name: String,
+    /// Human-readable description.
+    pub description: String,
+    /// Category grouping (e.g., `"uid"`, `"crypto"`).
+    pub category: String,
+    /// API path (e.g., `/uid-generate-token`).
+    pub endpoint: String,
+    /// Request `OpenAPI` schema name (camelCase form).
+    pub schema: String,
+    /// Optional response schema name.
+    pub response_schema: Option<String>,
+    /// Whether the action mutates server state.
+    ///
+    /// Used by backends to decide whether to flag `changed=true` (Ansible)
+    /// or run the call inside a transaction (Terraform). Defaults to
+    /// `true` when the spec leaves it unspecified.
+    pub mutating: bool,
+    /// Response fields whose values should be masked (`***`) before being
+    /// echoed back to the user.
+    pub sensitive_response_fields: Vec<String>,
+    /// Resolved input attributes (request body fields).
+    pub attributes: Vec<IacAttribute>,
+    /// Optional SDK method-name override.
+    ///
+    /// When `None`, backends derive the method from `schema`. When
+    /// `Some(name)`, they should use `name` verbatim. Used for batch
+    /// endpoints where the request body schema (e.g.
+    /// `BatchEncryptionRequestLine`) doesn't match the SDK method
+    /// (e.g. `encrypt_batch`).
+    #[serde(default)]
+    pub sdk_method: Option<String>,
+}
+
+impl std::fmt::Display for IacAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "action<{}> {} ({} attrs)",
+            self.name,
+            self.endpoint,
+            self.attributes.len()
+        )
+    }
+}
+
+impl HasAttributes for IacAction {
+    fn attributes(&self) -> &[IacAttribute] {
+        &self.attributes
+    }
+}
+
 /// A fully resolved data source in the platform-independent IR.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IacDataSource {
@@ -353,6 +419,11 @@ pub struct IacDataSource {
     pub read_schema: String,
     pub read_response_schema: Option<String>,
     pub attributes: Vec<IacAttribute>,
+    /// Mapping from API response JSON paths to canonical field names.
+    ///
+    /// Direction matches the TOML source: `json_response_key -> canonical_param_name`.
+    #[serde(default)]
+    pub read_mapping: std::collections::BTreeMap<String, String>,
 }
 
 impl std::fmt::Display for IacDataSource {
@@ -640,6 +711,7 @@ mod tests {
                 import_field: "name".to_string(),
                 force_replace_fields: vec!["name".to_string()],
             },
+            read_mapping: BTreeMap::new(),
         };
 
         let json = serde_json::to_string(&resource).expect("serialize");
@@ -685,6 +757,7 @@ mod tests {
                 import_field: "name".to_string(),
                 force_replace_fields: vec!["name".to_string()],
             },
+            read_mapping: BTreeMap::new(),
         }
     }
 
@@ -762,6 +835,7 @@ mod tests {
                     .computed()
                     .build(),
             ],
+            read_mapping: BTreeMap::new(),
         };
         assert_eq!(ds.required_attribute_names(), vec!["id"]);
         assert_eq!(ds.sensitive_attribute_names(), vec!["password"]);
@@ -802,6 +876,7 @@ mod tests {
                 import_field: "req_only".to_string(),
                 force_replace_fields: vec![],
             },
+            read_mapping: BTreeMap::new(),
         };
 
         let inputs = r.input_attributes();
@@ -844,6 +919,7 @@ mod tests {
                     .build(),
                 TestAttributeBuilder::new("neither", IacType::String).build(),
             ],
+            read_mapping: BTreeMap::new(),
         };
 
         let inputs = ds.input_attributes();
@@ -907,6 +983,7 @@ mod tests {
                 import_field: "id".to_string(),
                 force_replace_fields: vec![],
             },
+            read_mapping: BTreeMap::new(),
         };
 
         assert!(r.input_attributes().is_empty());
@@ -925,6 +1002,7 @@ mod tests {
             read_schema: "Read".to_string(),
             read_response_schema: None,
             attributes: vec![],
+            read_mapping: BTreeMap::new(),
         };
 
         assert!(ds.input_attributes().is_empty());
@@ -1134,6 +1212,7 @@ mod tests {
                 import_field: "id".to_string(),
                 force_replace_fields: vec![],
             },
+            read_mapping: BTreeMap::new(),
         };
         let inputs = r.input_attributes();
         assert_eq!(inputs.len(), 1, "optional+computed should be an input");
@@ -1154,6 +1233,7 @@ mod tests {
                     .computed()
                     .build(),
             ],
+            read_mapping: BTreeMap::new(),
         };
         let inputs = ds.input_attributes();
         assert_eq!(
@@ -1267,6 +1347,7 @@ mod tests {
                     .required()
                     .build(),
             ],
+            read_mapping: BTreeMap::new(),
         };
         let json = serde_json::to_string(&ds).expect("serialize");
         let deserialized: IacDataSource = serde_json::from_str(&json).expect("deserialize");

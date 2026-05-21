@@ -8,7 +8,7 @@
 //! [`tests/sexpr_ir_round_trip.rs`].
 
 use crate::ir::{
-    AuthInfo, CrudInfo, IacAttribute, IacDataSource, IacProvider, IacResource, IacType,
+    AuthInfo, CrudInfo, IacAction, IacAttribute, IacDataSource, IacProvider, IacResource, IacType,
     IdentityInfo,
 };
 use crate::sexpr::{FromSExpr, SExpr, SExprError, ToSExpr, parse_struct, struct_expr, take_field};
@@ -290,6 +290,63 @@ impl FromSExpr for AuthInfo {
     }
 }
 
+// ── BTreeMap<String, String> ────────────────────────────────────────
+//
+// Encoded as `(read-mapping (pair "k" "v") ...)` — deterministic since
+// BTreeMap iterates in key order.
+
+fn string_map_to_sexpr(map: &std::collections::BTreeMap<String, String>) -> SExpr {
+    let mut items = Vec::with_capacity(map.len() + 1);
+    items.push(SExpr::Symbol("read-mapping".into()));
+    for (k, v) in map {
+        items.push(SExpr::List(vec![
+            SExpr::Symbol("pair".into()),
+            SExpr::String(k.clone()),
+            SExpr::String(v.clone()),
+        ]));
+    }
+    SExpr::List(items)
+}
+
+fn string_map_from_sexpr(
+    s: &SExpr,
+) -> Result<std::collections::BTreeMap<String, String>, SExprError> {
+    let items = s.as_list()?;
+    let (head, rest) = items
+        .split_first()
+        .ok_or_else(|| SExprError::Shape("expected (read-mapping ...) form".into()))?;
+    let tag = head.as_symbol()?;
+    if tag != "read-mapping" {
+        return Err(SExprError::Shape(format!(
+            "expected 'read-mapping' tag, got '{tag}'"
+        )));
+    }
+    let mut out = std::collections::BTreeMap::new();
+    for pair in rest {
+        let pair_items = pair.as_list()?;
+        let (phead, prest) = pair_items
+            .split_first()
+            .ok_or_else(|| SExprError::Shape("expected (pair k v) form".into()))?;
+        let ptag = phead.as_symbol()?;
+        if ptag != "pair" {
+            return Err(SExprError::Shape(format!(
+                "expected 'pair' tag, got '{ptag}'"
+            )));
+        }
+        if prest.len() != 2 {
+            return Err(SExprError::Shape(format!(
+                "pair expects 2 args, got {}",
+                prest.len()
+            )));
+        }
+        out.insert(
+            String::from_sexpr(&prest[0])?,
+            String::from_sexpr(&prest[1])?,
+        );
+    }
+    Ok(out)
+}
+
 // ── IacResource ─────────────────────────────────────────────────────
 
 impl ToSExpr for IacResource {
@@ -303,6 +360,7 @@ impl ToSExpr for IacResource {
                 ("crud", self.crud.to_sexpr()),
                 ("attributes", self.attributes.to_sexpr()),
                 ("identity", self.identity.to_sexpr()),
+                ("read-mapping", string_map_to_sexpr(&self.read_mapping)),
             ],
         )
     }
@@ -318,6 +376,7 @@ impl FromSExpr for IacResource {
             crud: CrudInfo::from_sexpr(take_field(&f, "crud")?)?,
             attributes: Vec::<IacAttribute>::from_sexpr(take_field(&f, "attributes")?)?,
             identity: IdentityInfo::from_sexpr(take_field(&f, "identity")?)?,
+            read_mapping: string_map_from_sexpr(take_field(&f, "read-mapping")?)?,
         })
     }
 }
@@ -335,6 +394,7 @@ impl ToSExpr for IacDataSource {
                 ("read-schema", self.read_schema.to_sexpr()),
                 ("read-response-schema", self.read_response_schema.to_sexpr()),
                 ("attributes", self.attributes.to_sexpr()),
+                ("read-mapping", string_map_to_sexpr(&self.read_mapping)),
             ],
         )
     }
@@ -353,6 +413,53 @@ impl FromSExpr for IacDataSource {
                 "read-response-schema",
             )?)?,
             attributes: Vec::<IacAttribute>::from_sexpr(take_field(&f, "attributes")?)?,
+            read_mapping: string_map_from_sexpr(take_field(&f, "read-mapping")?)?,
+        })
+    }
+}
+
+// ── IacAction ───────────────────────────────────────────────────────
+
+impl ToSExpr for IacAction {
+    fn to_sexpr(&self) -> SExpr {
+        struct_expr(
+            "action",
+            vec![
+                ("name", self.name.to_sexpr()),
+                ("description", self.description.to_sexpr()),
+                ("category", self.category.to_sexpr()),
+                ("endpoint", self.endpoint.to_sexpr()),
+                ("schema", self.schema.to_sexpr()),
+                ("response-schema", self.response_schema.to_sexpr()),
+                ("mutating", self.mutating.to_sexpr()),
+                (
+                    "sensitive-response-fields",
+                    self.sensitive_response_fields.to_sexpr(),
+                ),
+                ("attributes", self.attributes.to_sexpr()),
+                ("sdk-method", self.sdk_method.to_sexpr()),
+            ],
+        )
+    }
+}
+
+impl FromSExpr for IacAction {
+    fn from_sexpr(s: &SExpr) -> Result<Self, SExprError> {
+        let f = parse_struct(s, "action")?;
+        Ok(Self {
+            name: String::from_sexpr(take_field(&f, "name")?)?,
+            description: String::from_sexpr(take_field(&f, "description")?)?,
+            category: String::from_sexpr(take_field(&f, "category")?)?,
+            endpoint: String::from_sexpr(take_field(&f, "endpoint")?)?,
+            schema: String::from_sexpr(take_field(&f, "schema")?)?,
+            response_schema: Option::<String>::from_sexpr(take_field(&f, "response-schema")?)?,
+            mutating: bool::from_sexpr(take_field(&f, "mutating")?)?,
+            sensitive_response_fields: Vec::<String>::from_sexpr(take_field(
+                &f,
+                "sensitive-response-fields",
+            )?)?,
+            attributes: Vec::<IacAttribute>::from_sexpr(take_field(&f, "attributes")?)?,
+            sdk_method: Option::<String>::from_sexpr(take_field(&f, "sdk-method")?)?,
         })
     }
 }
@@ -591,6 +698,52 @@ mod tests {
         let parsed = IacResource::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
         assert_eq!(parsed.name, r.name);
         assert_eq!(parsed.attributes, r.attributes);
+    }
+
+    // ── IacAction ──────────────────────────────────────────────
+
+    fn sample_action() -> IacAction {
+        IacAction {
+            name: "akeyless_uid_generate_token".into(),
+            description: "Generate a UID token".into(),
+            category: "uid".into(),
+            endpoint: "/uid-generate-token".into(),
+            schema: "uidGenerateToken".into(),
+            response_schema: Some("uidGenerateTokenOutput".into()),
+            mutating: true,
+            sensitive_response_fields: vec!["token".into()],
+            attributes: vec![sample_attr()],
+            sdk_method: None,
+        }
+    }
+
+    #[test]
+    fn round_trip_action() {
+        let a = sample_action();
+        let parsed = IacAction::from_sexpr(&a.to_sexpr()).expect("parse");
+        assert_eq!(parsed.name, a.name);
+        assert_eq!(parsed.endpoint, a.endpoint);
+        assert_eq!(parsed.mutating, a.mutating);
+        assert_eq!(parsed.sensitive_response_fields, a.sensitive_response_fields);
+        assert_eq!(parsed.sdk_method, a.sdk_method);
+    }
+
+    #[test]
+    fn round_trip_action_with_sdk_method_override() {
+        let mut a = sample_action();
+        a.schema = "BatchEncryptionRequestLine".into();
+        a.sdk_method = Some("encrypt_batch".into());
+        let parsed = IacAction::from_sexpr(&a.to_sexpr()).expect("parse");
+        assert_eq!(parsed.sdk_method.as_deref(), Some("encrypt_batch"));
+    }
+
+    #[test]
+    fn round_trip_action_through_emit() {
+        let a = sample_action();
+        let emitted = a.to_sexpr().emit();
+        let parsed = IacAction::from_sexpr(&SExpr::parse(&emitted).unwrap()).expect("parse");
+        assert_eq!(parsed.name, a.name);
+        assert_eq!(parsed.attributes.len(), a.attributes.len());
     }
 
     // ── IacProvider ────────────────────────────────────────────

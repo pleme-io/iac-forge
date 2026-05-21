@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::error::IacForgeError;
-use crate::ir::{IacDataSource, IacProvider, IacResource};
+use crate::ir::{IacAction, IacDataSource, IacProvider, IacResource};
 
 /// Kind of generated artifact.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,6 +231,24 @@ pub trait Backend {
         provider: &IacProvider,
     ) -> Result<Vec<GeneratedArtifact>, IacForgeError>;
 
+    /// Generate artifacts for a single RPC-style action.
+    ///
+    /// Defaults to an empty `Ok(vec![])` so backends that don't model
+    /// actions (Terraform, Pulumi, Crossplane today) can opt out by
+    /// simply inheriting. Backends that do support actions (Ansible)
+    /// override.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if code generation fails.
+    fn generate_action(
+        &self,
+        _action: &IacAction,
+        _provider: &IacProvider,
+    ) -> Result<Vec<GeneratedArtifact>, IacForgeError> {
+        Ok(vec![])
+    }
+
     /// Get the naming convention for this platform.
     fn naming(&self) -> &dyn NamingConvention;
 
@@ -415,6 +433,7 @@ mod tests {
                 import_field: "id".to_string(),
                 force_replace_fields: vec![],
             },
+            read_mapping: BTreeMap::new(),
         }
     }
 
@@ -426,6 +445,7 @@ mod tests {
             read_schema: "Read".to_string(),
             read_response_schema: None,
             attributes: vec![],
+            read_mapping: BTreeMap::new(),
         }
     }
 

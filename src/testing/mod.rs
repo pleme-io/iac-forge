@@ -74,6 +74,7 @@ pub fn test_resource(name: &str) -> IacResource {
             import_field: "name".to_string(),
             force_replace_fields: vec!["name".to_string()],
         },
+        read_mapping: BTreeMap::new(),
     }
 }
 
@@ -105,6 +106,7 @@ pub fn test_resource_with_type(name: &str, attr_name: &str, iac_type: IacType) -
             import_field: attr_name.to_string(),
             force_replace_fields: vec![],
         },
+        read_mapping: BTreeMap::new(),
     }
 }
 
@@ -131,6 +133,7 @@ pub fn test_data_source(name: &str) -> IacDataSource {
                 .description("The data source value")
                 .build(),
         ],
+        read_mapping: BTreeMap::new(),
     }
 }
 

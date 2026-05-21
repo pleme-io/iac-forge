@@ -62,17 +62,17 @@ pub mod type_map;
 pub use backend::{ArtifactKind, Backend, GeneratedArtifact, NamingConvention};
 pub use error::IacForgeError;
 pub use ir::{
-    AuthInfo, CrudInfo, HasAttributes, IacAttribute, IacDataSource, IacProvider, IacResource,
-    IacType, IdentityInfo,
+    AuthInfo, CrudInfo, HasAttributes, IacAction, IacAttribute, IacDataSource, IacProvider,
+    IacResource, IacType, IdentityInfo,
 };
 pub use naming::{
     strip_provider_prefix, to_camel_case, to_kebab_case, to_pascal_case, to_snake_case,
 };
-pub use resolve::{resolve_data_source, resolve_provider, resolve_resource};
+pub use resolve::{resolve_action, resolve_data_source, resolve_provider, resolve_resource};
 pub use spec::{
-    AuthConfig, ConfigLoader, CrudMapping, DataSourceMeta, DataSourceSpec, FieldOverride,
-    IdentityConfig, ProviderDefaults, ProviderMeta, ProviderSpec, ReadMapping, ResourceMeta,
-    ResourceSpec,
+    ActionMapping, AuthConfig, ConfigLoader, CrudMapping, DataSourceMeta, DataSourceSpec,
+    FieldOverride, IdentityConfig, ProviderDefaults, ProviderMeta, ProviderSpec, ReadMapping,
+    ResourceMeta, ResourceSpec,
 };
 pub use testing::{
     TestAttributeBuilder, test_data_source, test_provider, test_resource, test_resource_with_type,
