@@ -837,7 +837,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1126,7 +1126,7 @@ dependencies = [
 [[package]]
 name = "gix"
 version = "0.81.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-actor",
  "gix-archive",
@@ -1185,7 +1185,7 @@ dependencies = [
 [[package]]
 name = "gix-actor"
 version = "0.40.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-date",
@@ -1196,7 +1196,7 @@ dependencies = [
 [[package]]
 name = "gix-archive"
 version = "0.30.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-date",
@@ -1208,7 +1208,7 @@ dependencies = [
 [[package]]
 name = "gix-attributes"
 version = "0.31.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-glob",
@@ -1224,7 +1224,7 @@ dependencies = [
 [[package]]
 name = "gix-bitmap"
 version = "0.3.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-error",
 ]
@@ -1232,7 +1232,7 @@ dependencies = [
 [[package]]
 name = "gix-blame"
 version = "0.11.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-commitgraph",
  "gix-date",
@@ -1251,7 +1251,7 @@ dependencies = [
 [[package]]
 name = "gix-chunk"
 version = "0.7.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-error",
 ]
@@ -1259,7 +1259,7 @@ dependencies = [
 [[package]]
 name = "gix-command"
 version = "0.8.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-path",
@@ -1271,7 +1271,7 @@ dependencies = [
 [[package]]
 name = "gix-commitgraph"
 version = "0.35.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-chunk",
@@ -1284,7 +1284,7 @@ dependencies = [
 [[package]]
 name = "gix-config"
 version = "0.54.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-config-value",
@@ -1303,7 +1303,7 @@ dependencies = [
 [[package]]
 name = "gix-config-value"
 version = "0.17.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "bstr",
@@ -1315,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "gix-credentials"
 version = "0.37.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-command",
@@ -1332,7 +1332,7 @@ dependencies = [
 [[package]]
 name = "gix-date"
 version = "0.15.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-error",
@@ -1344,7 +1344,7 @@ dependencies = [
 [[package]]
 name = "gix-diff"
 version = "0.61.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-command",
@@ -1365,7 +1365,7 @@ dependencies = [
 [[package]]
 name = "gix-dir"
 version = "0.23.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-discover",
@@ -1384,7 +1384,7 @@ dependencies = [
 [[package]]
 name = "gix-discover"
 version = "0.49.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "dunce",
@@ -1398,7 +1398,7 @@ dependencies = [
 [[package]]
 name = "gix-error"
 version = "0.2.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
 ]
@@ -1406,7 +1406,7 @@ dependencies = [
 [[package]]
 name = "gix-features"
 version = "0.46.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bytes",
  "crc32fast",
@@ -1424,7 +1424,7 @@ dependencies = [
 [[package]]
 name = "gix-filter"
 version = "0.28.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "encoding_rs",
@@ -1444,7 +1444,7 @@ dependencies = [
 [[package]]
 name = "gix-fs"
 version = "0.19.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "fastrand",
@@ -1457,7 +1457,7 @@ dependencies = [
 [[package]]
 name = "gix-glob"
 version = "0.24.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "bstr",
@@ -1468,7 +1468,7 @@ dependencies = [
 [[package]]
 name = "gix-hash"
 version = "0.23.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "faster-hex",
  "gix-features",
@@ -1479,7 +1479,7 @@ dependencies = [
 [[package]]
 name = "gix-hashtable"
 version = "0.13.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-hash",
  "hashbrown 0.16.1",
@@ -1489,7 +1489,7 @@ dependencies = [
 [[package]]
 name = "gix-ignore"
 version = "0.19.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-glob",
@@ -1501,7 +1501,7 @@ dependencies = [
 [[package]]
 name = "gix-index"
 version = "0.49.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "bstr",
@@ -1528,7 +1528,7 @@ dependencies = [
 [[package]]
 name = "gix-lock"
 version = "21.0.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-tempfile",
  "gix-utils",
@@ -1538,7 +1538,7 @@ dependencies = [
 [[package]]
 name = "gix-merge"
 version = "0.14.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-command",
@@ -1563,7 +1563,7 @@ dependencies = [
 [[package]]
 name = "gix-negotiate"
 version = "0.29.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "gix-commitgraph",
@@ -1576,7 +1576,7 @@ dependencies = [
 [[package]]
 name = "gix-object"
 version = "0.58.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-actor",
@@ -1595,7 +1595,7 @@ dependencies = [
 [[package]]
 name = "gix-odb"
 version = "0.78.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "arc-swap",
  "gix-features",
@@ -1614,7 +1614,7 @@ dependencies = [
 [[package]]
 name = "gix-pack"
 version = "0.68.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "clru",
  "gix-chunk",
@@ -1634,7 +1634,7 @@ dependencies = [
 [[package]]
 name = "gix-packetline"
 version = "0.21.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "faster-hex",
@@ -1645,7 +1645,7 @@ dependencies = [
 [[package]]
 name = "gix-path"
 version = "0.11.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-trace",
@@ -1656,7 +1656,7 @@ dependencies = [
 [[package]]
 name = "gix-pathspec"
 version = "0.16.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "bstr",
@@ -1670,7 +1670,7 @@ dependencies = [
 [[package]]
 name = "gix-prompt"
 version = "0.14.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-command",
  "gix-config-value",
@@ -1682,7 +1682,7 @@ dependencies = [
 [[package]]
 name = "gix-protocol"
 version = "0.59.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-credentials",
@@ -1708,7 +1708,7 @@ dependencies = [
 [[package]]
 name = "gix-quote"
 version = "0.7.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-error",
@@ -1718,7 +1718,7 @@ dependencies = [
 [[package]]
 name = "gix-ref"
 version = "0.61.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-actor",
  "gix-features",
@@ -1738,7 +1738,7 @@ dependencies = [
 [[package]]
 name = "gix-refspec"
 version = "0.39.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-error",
@@ -1753,7 +1753,7 @@ dependencies = [
 [[package]]
 name = "gix-revision"
 version = "0.43.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "bstr",
@@ -1771,7 +1771,7 @@ dependencies = [
 [[package]]
 name = "gix-revwalk"
 version = "0.29.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-commitgraph",
  "gix-date",
@@ -1786,7 +1786,7 @@ dependencies = [
 [[package]]
 name = "gix-sec"
 version = "0.13.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "gix-path",
@@ -1797,7 +1797,7 @@ dependencies = [
 [[package]]
 name = "gix-shallow"
 version = "0.10.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-hash",
@@ -1809,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "gix-status"
 version = "0.28.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "filetime",
@@ -1831,7 +1831,7 @@ dependencies = [
 [[package]]
 name = "gix-submodule"
 version = "0.28.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-config",
@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "gix-tempfile"
 version = "21.0.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "dashmap",
  "gix-fs",
@@ -1857,12 +1857,12 @@ dependencies = [
 [[package]]
 name = "gix-trace"
 version = "0.1.18"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 
 [[package]]
 name = "gix-transport"
 version = "0.55.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "base64",
  "bstr",
@@ -1880,7 +1880,7 @@ dependencies = [
 [[package]]
 name = "gix-traverse"
 version = "0.55.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bitflags",
  "gix-commitgraph",
@@ -1896,7 +1896,7 @@ dependencies = [
 [[package]]
 name = "gix-url"
 version = "0.35.2"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-path",
@@ -1907,7 +1907,7 @@ dependencies = [
 [[package]]
 name = "gix-utils"
 version = "0.3.1"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "fastrand",
@@ -1917,7 +1917,7 @@ dependencies = [
 [[package]]
 name = "gix-validate"
 version = "0.11.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
 ]
@@ -1925,7 +1925,7 @@ dependencies = [
 [[package]]
 name = "gix-worktree"
 version = "0.50.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-attributes",
@@ -1942,7 +1942,7 @@ dependencies = [
 [[package]]
 name = "gix-worktree-state"
 version = "0.28.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "bstr",
  "gix-features",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "gix-worktree-stream"
 version = "0.30.0"
-source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#e840680cf824c54d9c4babff7124236aafc52b01"
+source = "git+https://github.com/pleme-io/gitoxide?branch=edition-2024-compat#0d97f3726c72149909c48b032ff81385ad7c01b9"
 dependencies = [
  "gix-attributes",
  "gix-error",
@@ -2496,7 +2496,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3333,7 +3333,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3724,7 +3724,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3783,7 +3783,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4758,7 +4758,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5498,7 +5498,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
