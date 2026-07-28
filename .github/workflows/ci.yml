@@ -1,3 +1,32 @@
+# iac-forge flake-evaluation gate.
+#
+# THIS IS NOT A TEST GATE. It runs `nix flake check`, which builds only
+# `checks.<system>.*`; iac-forge's flake.nix declares none
+# (`grep -c checks flake.nix` → 0), and substrate's
+# `lib/build/rust/library.nix` returns `{ packages, devShells, apps }` with
+# no `checks` key either. So this workflow evaluates the flake and builds
+# nothing — every one of the 678 `#[test]` attributes is invisible to it.
+#
+# The actual test gate is `.github/workflows/tests.yml`, which runs
+# `cargo test` directly. Read its header before changing either file: it
+# records the measured red-run receipts, the root cause of the continuous
+# red from 2026-05-31, and the substrate follow-up that would let this
+# workflow become honest.
+#
+# `flake-args: --impure` is REQUIRED, not optional: substrate hands this
+# repo a devenv devShell, `nix flake check` evaluates ALL outputs including
+# devShells, and a devenv shell cannot be evaluated purely. Without it this
+# workflow aborts with
+#   error: Failed assertions:
+#   - devenv was not able to determine the current directory.
+# followed by three cascading `error: attribute 'packages' missing`. That
+# was one of the two stacked causes of the 54-day red. The other — a
+# gix-0.81.0 fetchgit hash mismatch on the pleme-io/gitoxide git dependency,
+# reached through crate2nix's import-from-derivation — is NOT fixed by this
+# input and still needs the `hashfix` drift resolved upstream. This gate is
+# therefore expected to stay red until that lands; tests.yml is what carries
+# real signal in the meantime.
+
 name: ci
 
 on: [push, pull_request]
@@ -5,3 +34,5 @@ on: [push, pull_request]
 jobs:
   check:
     uses: pleme-io/substrate/.github/workflows/cargo-ci.yml@main
+    with:
+      flake-args: "--impure"

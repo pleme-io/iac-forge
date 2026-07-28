@@ -357,7 +357,35 @@ backends inherit the discipline automatically via the blanket impls.
 
 ## Test Count
 
-540+ tests across lib + integration covering:
+**690 tests: 678 (lib + integration) + 12 doctests.** Measured 2026-07-27 with
+`cargo test --locked --all-features --all-targets` and `--doc`; all green. The
+previous "540+" claim in this file was stale.
+
+`--all-features` is load-bearing: default features run **669**, all features run
+**678**. The 9-test delta is `sui-eval`, which gates `pub mod sui_transform`
+(`src/lib.rs:52`). A gate that omits the flag silently drops those 9.
+
+| Target | Tests |
+|---|---|
+| `src/lib.rs` (unit) | 601 |
+| `tests/cross_lang_vectors.rs` | 8 |
+| `tests/cross_language.rs` | 3 |
+| `tests/morphism_laws.rs` | 9 |
+| `tests/nix_cross_language.rs` | 2 |
+| `tests/nix_fod_build.rs` | 2 |
+| `tests/remediation_laws.rs` | 10 |
+| `tests/reversibility_lemma.rs` | 18 |
+| `tests/sexpr_round_trip.rs` | 10 |
+| `tests/transform_properties.rs` | 15 |
+| **subtotal (`--all-targets`)** | **678** |
+| doctests (`--doc`, excluded by `--all-targets`) | 12 |
+| **total** | **690** |
+
+Doctests are counted and gated separately because `--all-targets` excludes
+them — the one real failure found when this suite was first wired into CI was
+a doctest (`src/remediation.rs`). See `.github/workflows/tests.yml`.
+
+Coverage:
 - IR types, resolver, spec loading, naming, type mapping
 - Backend trait contract, naming conventions
 - Morphism laws (identity units, associativity, proof composition, traceability)

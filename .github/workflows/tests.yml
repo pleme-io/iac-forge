@@ -1,0 +1,208 @@
+# iac-forge test gate — the workflow that actually compiles and runs the tests.
+#
+# WHY THIS EXISTS (do not "simplify" it into the cargo-ci.yml shim):
+#
+#   `.github/workflows/ci.yml` delegates to
+#   `pleme-io/substrate/.github/workflows/cargo-ci.yml`, which runs
+#   `nix flake check`. That workflow's own header claims it "runs whatever
+#   `checks.<system>.*` the flake exposes (usually `cargo test` via the
+#   substrate baseline)". For this repo that sentence is FALSE in both
+#   halves:
+#
+#     * iac-forge's flake.nix exposes NO `checks` output at all
+#       (`grep -c checks flake.nix` → 0), and it only ever forwards
+#       `packages` / `devShells` / `apps`; and
+#     * the substrate baseline it names does not exist —
+#       `lib/build/rust/library.nix` (the builder this repo actually uses,
+#       via the `lib/rust-library.nix` shim) returns
+#       `{ packages, devShells, apps }` with no `checks` key.
+#
+#   `nix flake check` builds only `checks.<system>.*`. With none declared it
+#   degrades to an EVALUATION check, so all 678 `#[test]` attributes plus the
+#   9 files under tests/ were never executed by CI. The sibling probe on
+#   `pleme-io/forge` measured the end state of that vacuum directly: with
+#   literal non-Rust garbage in a function body, `nix flake check` still
+#   exited 0 and printed "(build skipped)" — the crate was not merely
+#   untested, it was never COMPILED.
+#
+#   ci.yml is KEPT — a flake-eval gate is genuinely useful — but it is not,
+#   and never was, a test gate.
+#
+# WHAT THE 54-DAY RED ACTUALLY WAS (subclass G, "Abandoned Red"):
+#
+#   `ci` failed continuously from 2026-05-31 through the last run on main
+#   (26872121358, 2026-06-03). A constant signal is zero-information and
+#   masks every later regression, so it was read rather than assumed. It is
+#   TWO stacked eval-time failures, and NEITHER is a Rust test failure:
+#
+#     1. error: Failed assertions:
+#        - devenv was not able to determine the current directory.
+#        → substrate's devShell is a devenv shell; `nix flake check`
+#          evaluates ALL outputs including devShells, and a devenv shell
+#          cannot be evaluated purely. cargo-ci.yml exposes a `flake-args`
+#          input for exactly this (`--impure`); iac-forge's ci.yml passes
+#          none. Cascades into three `error: attribute 'packages' missing`.
+#
+#     2. error: hash mismatch in fixed-output derivation '…gix-0.81.0.drv':
+#          specified: sha256-7ftRxJiQ4cR4PjssZ/N3zzREiiFO4EBXbZdrPoSmFZM=
+#             got:    sha256-jVs+ZlLlOsIRjIv0KBQS6JK5J7VMit6LRh8OSAFhTZw=
+#        → the documented crate2nix-vs-fetchgit drift class (`hashfix`),
+#          on the `pleme-io/gitoxide` git dependency reached through
+#          crate2nix's import-from-derivation.
+#
+#   So the red hid no Rust defect — but it also proved nothing about the
+#   Rust, which is the point of this file.
+#
+# WHY NOT FIX IT AT THE FLAKE INSTEAD — AND WHY THE ANSWER HERE DIFFERS
+# FROM forge's (checked, not assumed):
+#
+#   forge is blocked because `runTests` does not exist anywhere on its path:
+#   it builds via substrate's `lockfile-builder.nix`, which contains ZERO
+#   occurrences of `runTests`, and nixpkgs' `buildRustCrate` has no such
+#   argument. iac-forge does NOT use that builder. It uses
+#   `crate2nixTools.generatedCargoNix` (library.nix:63-66), and crate2nix's
+#   generated support library DOES expose the argument:
+#
+#     crate2nix/templates/nix/crate2nix/default.nix:225  buildRustCrateWithFeatures =
+#     …:230    , runTests ? false
+#     …:239    lib.makeOverridable
+#
+#   `library.nix` sets `packages.default = project.rootCrate.build`, i.e.
+#   the makeOverridable value itself — so `.override { runTests = true; }`
+#   is genuinely REACHABLE from this flake. The API blocker forge hit does
+#   not apply here. Stated plainly so nobody re-derives the wrong verdict.
+#
+#   It is nonetheless not shipped in this commit, for reasons that are
+#   measured rather than assumed:
+#
+#     a. It cannot be verified. The override probe dies upstream of the
+#        override, inside crate2nix's IFD:
+#          $ nix eval --impure --expr '(…default.override { runTests = true; }).drvPath'
+#          error: Cannot build '…gix-0.81.0.drv'
+#          > fatal: could not read Username for 'https://github.com'
+#        `pleme-io/gitoxide` needs credentials the build sandbox lacks, and
+#        in CI the same fetch is the hash mismatch above. Shipping a nix
+#        `checks` output that has never been watched working would recreate
+#        the exact defect class this file removes.
+#     b. It would still need `--impure` threaded through ci.yml for devenv.
+#     c. `runTests` uses `rootFeatures`, so it would run with `sui-eval`
+#        OFF and silently drop 9 tests (see the feature note below) unless
+#        `features` is overridden too.
+#     d. crate2nix's runTests executes the compiled test binaries. It does
+#        NOT run doctests — which is precisely where this repo's one real
+#        failure lived (below). A flake-only gate would have missed it.
+#
+#   So the load-bearing fix is real and closer here than in forge, but it is
+#   gated on the gix hash drift; see SUBSTRATE FOLLOW-UP at the bottom.
+#
+# THE REAL FAILURE THIS GATE IMMEDIATELY CAUGHT:
+#
+#   `src/remediation.rs` module doctest asserted
+#   `assert_ne!(outcome.before_hash, outcome.after_hash)` after applying
+#   `(mark-sensitive "database_url")` to `test_resource("widget")` — a
+#   fixture whose attributes are `name`, `value`, `tags`. The script was a
+#   no-op, so the hashes were equal and the assert was inverted:
+#     assertion `left != right` failed
+#       left:  843f1c50…  right: 843f1c50…   → exit 101
+#   Verdict: the TEST was wrong, the code was right — the library's own
+#   `apply_proposal_no_op_produces_unchanged_outcome` unit test asserts
+#   exactly the behaviour the doc example contradicted. The example now
+#   exercises a real change AND documents the no-op case.
+#
+# THIS GATE WAS WATCHED FAILING BEFORE IT WAS TRUSTED (Tier ⊥ discipline —
+# a gate never observed to go red may be checking nothing):
+#
+#     compile_error! in a test module  → cargo test exit 101
+#                                        ("could not compile `iac-forge` (lib test)")
+#     assert_eq!(1, 2) in a test body  → cargo test exit 101
+#                                        ("601 passed; 1 failed")
+#     the real doctest bug above       → cargo test --doc exit 101
+#
+#   The first proves the test target is COMPILED, the second proves it is
+#   EXECUTED, the third proves the doc leg is load-bearing. `nix flake check`
+#   distinguishes none of these.
+#
+# RESIDUAL, NAMED HONESTLY: tests/cross_language.rs, tests/nix_fod_build.rs
+# and tests/nix_cross_language.rs self-skip (print "[skip] …" and return)
+# when nix-shell / nix-instantiate / ruby are unavailable. On a plain
+# ubuntu-latest runner those bodies pass without asserting anything. They
+# are left as-is rather than silently changed — converting a self-skip into
+# a hard requirement is a separate decision, not a side effect of wiring a
+# gate. Tracked as: pending-vacuous-guard: cross-language skip arms.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain versions
+        run: cargo --version && rustc --version
+
+      # `--all-targets` is load-bearing, not decoration: it is what forces
+      # every target (incl. the lib test target and all 9 files under
+      # tests/) to compile.
+      #
+      # `--all-features` is load-bearing HERE specifically, and measurably:
+      #   cargo test --all-targets                → 669 passed
+      #   cargo test --all-targets --all-features → 678 passed
+      # The 9-test delta is the `sui-eval` feature (optional `sui-eval` dep
+      # from pleme-io/sui), which gates `pub mod sui_transform` behind
+      # #[cfg(feature = "sui-eval")] in src/lib.rs:52. Without this flag
+      # those tests are as unrun as they were under `nix flake check`.
+      #
+      # `--locked` keeps CI honest about the committed Cargo.lock instead of
+      # silently resolving a different dependency graph than a release does.
+      - name: cargo test --all-targets --all-features --locked
+        run: cargo test --all-targets --all-features --locked
+
+      # SEPARATE STEP ON PURPOSE. `--all-targets` EXCLUDES doctests, so the
+      # step above cannot see them. This repo has 12 doctests and one of
+      # them was genuinely broken (see header) — dropping this step would
+      # reinstate a blind spot that had already hidden a real failure.
+      - name: cargo test --doc --all-features --locked
+        run: cargo test --doc --all-features --locked
+
+# ── SUBSTRATE FOLLOW-UP (the load-bearing fix this repo cannot make) ──
+#
+# Every consumer of `substrate/.github/workflows/cargo-ci.yml` inherits the
+# vacuum documented above, not just iac-forge. Three changes close it at
+# cause, in dependency order:
+#
+#   1. Fix the `pleme-io/gitoxide` / gix-0.81.0 fetchgit hash drift so the
+#      crate2nix IFD path evaluates at all. Until this lands, NOTHING on the
+#      nix side of this repo can be verified — including item (2).
+#
+#   2. substrate/lib/build/rust/library.nix — return a `checks` attribute
+#      alongside `{ packages, devShells, apps }`, wired to the crate2nix
+#      override that already exists on this path:
+#          checks.tests = project.rootCrate.build.override {
+#            runTests = true;
+#            features = rootFeatures ++ [ "<crate>/<feature>" ];  # see (c) above
+#          };
+#      `tool-release.nix` already proves the shape by exposing
+#      `checks.gen-confirm`. Note this still will not cover doctests.
+#
+#   3. substrate/.github/workflows/cargo-ci.yml:14-15 — the header sentence
+#      "runs whatever `checks.<system>.*` the flake exposes (usually
+#      `cargo test` via the substrate baseline)" describes a baseline that
+#      does not exist. Until (2) lands it should say what the workflow
+#      really does: evaluate the flake and build only such `checks` as the
+#      consumer declares itself. Consumers also need `flake-args: --impure`
+#      whenever substrate hands them a devenv devShell.
+#
+# A fleet sweep for other consumers with 0 `checks` in their flake will show
+# who else is currently green-on-nothing.

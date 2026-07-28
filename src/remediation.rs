@@ -18,14 +18,23 @@
 //! # use iac_forge::remediation::{Proposal, apply_proposal};
 //! # use iac_forge::testing::test_resource;
 //! let resource = test_resource("widget");
+//! // `test_resource` carries the attributes `name`, `value`, `tags`.
+//! // `tags` is not yet sensitive, so this proposal genuinely changes it.
 //! let proposal = Proposal::new(
-//!     "flag database-url sensitive",
-//!     r#"(mark-sensitive "database_url")"#,
+//!     "flag tags sensitive",
+//!     r#"(mark-sensitive "tags")"#,
 //! );
 //! let outcome = apply_proposal(&resource, &proposal).expect("apply");
-//! assert_eq!(outcome.proposal_reason, "flag database-url sensitive");
-//! assert_ne!(outcome.before_hash, outcome.after_hash); // something changed
-//! # // (or stayed the same if no attribute was named "database_url")
+//! assert_eq!(outcome.proposal_reason, "flag tags sensitive");
+//! assert!(outcome.changed());
+//! assert_ne!(outcome.before_hash, outcome.after_hash);
+//!
+//! // A proposal naming an attribute the resource does not have is a
+//! // well-formed no-op: it parses, applies, and reports "nothing changed".
+//! let absent = Proposal::new("no such field", r#"(mark-sensitive "database_url")"#);
+//! let outcome = apply_proposal(&resource, &absent).expect("apply");
+//! assert!(!outcome.changed());
+//! assert_eq!(outcome.before_hash, outcome.after_hash);
 //! ```
 
 use crate::ir::IacResource;
