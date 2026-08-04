@@ -2342,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "iac-forge"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "blake3",
  "meimei",
@@ -3053,9 +3053,9 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "openapi-forge"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "750420feccd4053abe0cad25d89bcc2f3bcb97c8b31094dc0bdda5e4d48c26d7"
+checksum = "ba0d692bfa4a3bcd8d438a32137df663300b3c75b8bd282b2164b0bddf30de7f"
 dependencies = [
  "indexmap",
  "pleme-io-takumi",
