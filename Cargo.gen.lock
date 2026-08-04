@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "990fa1d38c397e1bea3a74acf47f0009a997eb2a27e6893fcde2e2b9da96687b",
+  "cargo_lock_sha256": "d0839a78d09bc8190297c7be00b22f7d222fa97f71b643ed912da4a5ff5633b6",
   "manifest_sha256": {
-    "Cargo.toml": "4490fab87d73c23c6128cf30e403f838e8bafc5fc9e790b417259f6279d63be2"
+    "Cargo.toml": "5f589fb84adf11e65e9a9a512d2b5b2130e02231b1cb9d9421a3cddd2754e4d0"
   },
   "target_resolves": {
     "base": {
@@ -357,7 +357,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "iac-forge-0.1.3": {
+      "iac-forge-0.1.4": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -2740,7 +2740,7 @@
     "hashbrown-0.17.1": {
       "edition": "2024"
     },
-    "iac-forge-0.1.3": {
+    "iac-forge-0.1.4": {
       "edition": "2024",
       "lib_target": {
         "name": "iac_forge",
