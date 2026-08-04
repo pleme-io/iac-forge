@@ -302,6 +302,11 @@ pub fn resolve_provider(provider: &ProviderSpec) -> IacProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `Spec::from_str` is `impl FromStr for Spec`, not an inherent method, so
+    // the trait has to be in scope. This built while openapi-forge came from
+    // git and broke the moment it came from the registry — not an API change,
+    // just a different edition/prelude reach at the call site.
+    use std::str::FromStr;
 
     fn make_test_spec() -> (ResourceSpec, Spec) {
         let toml_str = r#"
@@ -2264,7 +2269,10 @@ components:
         assert_eq!(action.name, "akeyless_uid_generate_token");
         assert_eq!(action.endpoint, "/uid-generate-token");
         assert_eq!(action.schema, "uidGenerateToken");
-        assert_eq!(action.response_schema.as_deref(), Some("uidGenerateTokenOutput"));
+        assert_eq!(
+            action.response_schema.as_deref(),
+            Some("uidGenerateTokenOutput")
+        );
         assert!(action.mutating);
         assert_eq!(action.sensitive_response_fields, vec!["token".to_string()]);
         // Skip filter dropped `token`; field overrides marked auth-method-name required.

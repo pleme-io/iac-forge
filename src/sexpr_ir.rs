@@ -724,7 +724,10 @@ mod tests {
         assert_eq!(parsed.name, a.name);
         assert_eq!(parsed.endpoint, a.endpoint);
         assert_eq!(parsed.mutating, a.mutating);
-        assert_eq!(parsed.sensitive_response_fields, a.sensitive_response_fields);
+        assert_eq!(
+            parsed.sensitive_response_fields,
+            a.sensitive_response_fields
+        );
         assert_eq!(parsed.sdk_method, a.sdk_method);
     }
 

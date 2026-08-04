@@ -129,32 +129,54 @@ mod tests {
     /// TOML `read_schema`, expected SDK read method, optional
     /// `read_response_schema`, expected output type). Verified against the
     /// actual emitted `pleme-io/akeyless-go/api_v2.go` symbols.
-    fn akeyless_targets() -> Vec<(&'static str, &'static str, &'static str, &'static str, Option<&'static str>, &'static str)> {
+    fn akeyless_targets() -> Vec<(
+        &'static str,
+        &'static str,
+        &'static str,
+        &'static str,
+        Option<&'static str>,
+        &'static str,
+    )> {
         vec![
             (
-                "authMethodCreateApiKey", "AuthMethodCreateApiKey",
-                "getAuthMethod",          "GetAuthMethod",
-                Some("AuthMethod"),       "AuthMethod",
+                "authMethodCreateApiKey",
+                "AuthMethodCreateApiKey",
+                "getAuthMethod",
+                "GetAuthMethod",
+                Some("AuthMethod"),
+                "AuthMethod",
             ),
             (
-                "createRole",   "CreateRole",
-                "getRole",      "GetRole",
-                None,           "GetRoleOutput",
+                "createRole",
+                "CreateRole",
+                "getRole",
+                "GetRole",
+                None,
+                "GetRoleOutput",
             ),
             (
-                "setRoleRule",  "SetRoleRule",
-                "getRole",      "GetRole",
-                None,           "GetRoleOutput",
+                "setRoleRule",
+                "SetRoleRule",
+                "getRole",
+                "GetRole",
+                None,
+                "GetRoleOutput",
             ),
             (
-                "createSecret",   "CreateSecret",
-                "getSecretValue", "GetSecretValue",
-                None,             "GetSecretValueOutput",
+                "createSecret",
+                "CreateSecret",
+                "getSecretValue",
+                "GetSecretValue",
+                None,
+                "GetSecretValueOutput",
             ),
             (
-                "gatewayCreateK8SAuthConfig", "GatewayCreateK8SAuthConfig",
-                "gatewayGetK8SAuthConfig",    "GatewayGetK8SAuthConfig",
-                Some("GatewayGetK8SAuthConfigOutput"), "GatewayGetK8SAuthConfigOutput",
+                "gatewayCreateK8SAuthConfig",
+                "GatewayCreateK8SAuthConfig",
+                "gatewayGetK8SAuthConfig",
+                "GatewayGetK8SAuthConfig",
+                Some("GatewayGetK8SAuthConfigOutput"),
+                "GatewayGetK8SAuthConfigOutput",
             ),
         ]
     }
@@ -162,9 +184,17 @@ mod tests {
     #[test]
     fn five_representative_resources_round_trip() {
         for (create, exp_create, read, exp_read, response, exp_output) in akeyless_targets() {
-            assert_eq!(go_method_name(create), exp_create, "create method for {create}");
+            assert_eq!(
+                go_method_name(create),
+                exp_create,
+                "create method for {create}"
+            );
             assert_eq!(go_method_name(read), exp_read, "read method for {read}");
-            assert_eq!(go_output_type_name(read, response), exp_output, "output type for {read}");
+            assert_eq!(
+                go_output_type_name(read, response),
+                exp_output,
+                "output type for {read}"
+            );
         }
     }
 
@@ -200,7 +230,10 @@ mod tests {
     #[test]
     fn already_pascal_case_is_idempotent() {
         assert_eq!(go_method_name("CreateRole"), "CreateRole");
-        assert_eq!(go_method_name("AuthMethodCreateApiKey"), "AuthMethodCreateApiKey");
+        assert_eq!(
+            go_method_name("AuthMethodCreateApiKey"),
+            "AuthMethodCreateApiKey"
+        );
     }
 
     #[test]

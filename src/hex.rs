@@ -37,16 +37,14 @@ pub fn encode(bytes: &[u8]) -> String {
 /// The empty string decodes to an empty `Vec<u8>` — valid degenerate.
 pub fn decode(s: &str) -> Result<Vec<u8>, SExprError> {
     if s.len() % 2 != 0 {
-        return Err(SExprError::Parse(
-            "hex string must have even length".into(),
-        ));
+        return Err(SExprError::Parse("hex string must have even length".into()));
     }
     let mut out = Vec::with_capacity(s.len() / 2);
     for chunk in s.as_bytes().chunks(2) {
-        let pair = std::str::from_utf8(chunk)
-            .map_err(|_| SExprError::Parse("non-ascii in hex".into()))?;
-        let byte = u8::from_str_radix(pair, 16)
-            .map_err(|e| SExprError::Parse(format!("bad hex: {e}")))?;
+        let pair =
+            std::str::from_utf8(chunk).map_err(|_| SExprError::Parse("non-ascii in hex".into()))?;
+        let byte =
+            u8::from_str_radix(pair, 16).map_err(|e| SExprError::Parse(format!("bad hex: {e}")))?;
         out.push(byte);
     }
     Ok(out)

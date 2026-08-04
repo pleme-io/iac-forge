@@ -435,6 +435,11 @@ impl DataSourceSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `Spec::from_str` is `impl FromStr for Spec`, not an inherent method, so
+    // the trait must be in scope. This compiled while openapi-forge came from
+    // git and broke when it came from the registry — not an API change, just a
+    // different prelude reach at the call site.
+    use std::str::FromStr;
 
     #[test]
     fn config_loader_from_toml_resource() {
@@ -555,7 +560,10 @@ sensitive_response_fields = ["token"]
         let action = spec.action.expect("action table");
         assert_eq!(action.endpoint, "/uid-generate-token");
         assert_eq!(action.schema, "uidGenerateToken");
-        assert_eq!(action.response_schema.as_deref(), Some("uidGenerateTokenOutput"));
+        assert_eq!(
+            action.response_schema.as_deref(),
+            Some("uidGenerateTokenOutput")
+        );
         assert_eq!(action.mutating, Some(true));
         assert_eq!(action.sensitive_response_fields, vec!["token".to_string()]);
     }
