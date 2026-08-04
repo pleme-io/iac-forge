@@ -9,7 +9,13 @@ repository = "https://github.com/pleme-io/iac-forge"
 documentation = "https://docs.rs/iac-forge"
 readme = "README.md"
 license = "MIT"
-categories = ["development-tools", "code-generators"]
+# `code-generators` is NOT a crates.io category slug and the registry rejects
+# the whole release for it — 400 Bad Request, "The following category slugs are
+# not currently supported". It reads plausible, which is why it survived: the
+# field is never validated locally, only at upload, so this crate built and
+# tested clean forever while being unreleasable. `codegen` stays as a KEYWORD
+# below, which is free-form and does express the same thing.
+categories = ["development-tools"]
 keywords = ["iac", "codegen", "openapi", "terraform", "pulumi"]
 
 [lints.clippy]
