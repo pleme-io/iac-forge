@@ -25,12 +25,12 @@ sui-eval = ["dep:sui-eval"]
 
 [dependencies]
 blake3 = "1.8"
-meimei = { git = "https://github.com/pleme-io/meimei" , version = "0.1" }
-openapi-forge = { git = "https://github.com/pleme-io/openapi-forge" , version = "0.1" }
-takumi = { git = "https://github.com/pleme-io/takumi" , version = "0.1" }
+meimei = "0.1"
+openapi-forge = "0.1"
+takumi = { package = "pleme-io-takumi", version = "0.1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sui-eval = { git = "https://github.com/pleme-io/sui", optional = true , version = "0.1" }
+sui-eval = { version = "0.1", optional = true }
 thiserror = "2"
 toml = "0.8"
 
