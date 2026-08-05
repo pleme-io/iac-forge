@@ -1,35 +1,16 @@
-# iac-forge flake-evaluation gate.
-#
-# THIS IS NOT A TEST GATE. It runs `nix flake check`, which builds only
-# `checks.<system>.*`; iac-forge's flake.nix declares none
-# (`grep -c checks flake.nix` → 0), and substrate's
-# `lib/build/rust/library.nix` returns `{ packages, devShells, apps }` with
-# no `checks` key either. So this workflow evaluates the flake and builds
-# nothing — every one of the 678 `#[test]` attributes is invisible to it.
-#
-# The actual test gate is `.github/workflows/tests.yml`, which runs
-# `cargo test` directly.
-#
-# The reusable workflow cannot be made non-fatal directly (GitHub Actions
-# does not support continue-on-error on reusable workflow calls). So we
-# wrap it in a job that always succeeds.
-
 name: ci
 
 on: [push, pull_request]
 
 jobs:
-  check:
-    uses: pleme-io/substrate/.github/workflows/cargo-ci.yml@main
-    with:
-      flake-args: "--impure"
-
-  # Green wrapper — the real check above is expected to stay red until
-  # the devenv + packages-attribute issues are resolved upstream in
-  # substrate. tests.yml carries the real signal.
-  ci-green:
+  cargo-test:
     runs-on: ubuntu-latest
-    needs: check
-    if: always()
     steps:
-      - run: echo "ci check completed (may have failed — see tests.yml for real gate)"
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+        continue-on-error: true
+      - run: cargo test --workspace
