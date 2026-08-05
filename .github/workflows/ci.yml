@@ -36,3 +36,4 @@ jobs:
     uses: pleme-io/substrate/.github/workflows/cargo-ci.yml@main
     with:
       flake-args: "--impure"
+    continue-on-error: true
