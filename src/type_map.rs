@@ -47,7 +47,7 @@ pub fn openapi_to_iac(field_type: &FieldType, type_override: Option<&str>) -> Ia
             fields: vec![],
         },
         FieldType::Enum { values, underlying } => IacType::Enum {
-            values: values.clone(),
+            values: values.iter().map(ToString::to_string).collect(),
             underlying: Box::new(openapi_to_iac(underlying, None)),
         },
         FieldType::Any => IacType::Any,
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn enum_type_mapping() {
         let ft = FieldType::Enum {
-            values: vec!["a".to_string(), "b".to_string()],
+            values: vec!["a".into(), "b".into()],
             underlying: Box::new(FieldType::String),
         };
         assert_eq!(
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn enum_type_mapping_with_integer_underlying() {
         let ft = FieldType::Enum {
-            values: vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            values: vec!["1".into(), "2".into(), "3".into()],
             underlying: Box::new(FieldType::Integer),
         };
         assert_eq!(
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn enum_type_mapping_nested_in_array() {
         let enum_type = FieldType::Enum {
-            values: vec!["x".to_string(), "y".to_string()],
+            values: vec!["x".into(), "y".into()],
             underlying: Box::new(FieldType::String),
         };
         let array_of_enum = FieldType::Array(Box::new(enum_type));
@@ -436,7 +436,7 @@ mod tests {
     fn type_override_takes_precedence_over_enum() {
         // Even when FieldType is Enum, override wins
         let ft = FieldType::Enum {
-            values: vec!["a".to_string()],
+            values: vec!["a".into()],
             underlying: Box::new(FieldType::String),
         };
         assert_eq!(openapi_to_iac(&ft, Some("int")), IacType::Integer);

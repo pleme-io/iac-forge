@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn emit_float_adds_decimal_if_missing() {
         assert_eq!(SExpr::Float(1.0).emit(), "1.0");
-        assert_eq!(SExpr::Float(3.14).emit(), "3.14");
+        assert_eq!(SExpr::Float(2.75).emit(), "2.75");
     }
 
     #[test]
@@ -604,7 +604,7 @@ mod tests {
     #[test]
     fn parse_primitives() {
         assert_eq!(SExpr::parse("42").unwrap(), SExpr::Integer(42));
-        assert_eq!(SExpr::parse("3.14").unwrap(), SExpr::Float(3.14));
+        assert_eq!(SExpr::parse("2.75").unwrap(), SExpr::Float(2.75));
         assert_eq!(SExpr::parse("true").unwrap(), SExpr::Bool(true));
         assert_eq!(SExpr::parse("false").unwrap(), SExpr::Bool(false));
         assert_eq!(SExpr::parse("nil").unwrap(), SExpr::Nil);

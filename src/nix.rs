@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn float_renders_with_decimal_point() {
         assert_eq!(NixValue::Float(1.0).to_nix_expr(), "1.0");
-        assert_eq!(NixValue::Float(3.14).to_nix_expr(), "3.14");
+        assert_eq!(NixValue::Float(2.75).to_nix_expr(), "2.75");
     }
 
     #[test]

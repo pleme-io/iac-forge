@@ -125,7 +125,7 @@ fn primitive_f64_reversible() {
     // must round-trip exactly because emit preserves Rust's
     // f64::to_string output.
     assert_strict_reversible(0.5_f64);
-    assert_strict_reversible(-3.14_f64);
+    assert_strict_reversible(-2.75_f64);
     assert_strict_reversible(1.0_f64);
 }
 

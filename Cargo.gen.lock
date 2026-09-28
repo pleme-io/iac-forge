@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "8308f994e294d877dc19b3d6fde310c4e94c6d1cf5e97723581885f8d57a3e67",
+  "cargo_lock_sha256": "6857fdd3ccde283fc20dfcf53ee5b179d622a389d2c0b3d886502c46dbe43eec",
   "manifest_sha256": {
-    "Cargo.toml": "231844fa228dbb01c8f2522078574eceef5cf1819958d4585c7d272f554fa63d"
+    "Cargo.toml": "d69af4a450999625aa38273aeeb1932daf525ac8896df8aabd0ce47d30e62b34"
   },
   "target_resolves": {
     "base": {
@@ -391,7 +391,7 @@
           },
           {
             "name": "takumi",
-            "package_key": "pleme-io-takumi-0.1.2",
+            "package_key": "pleme-io-takumi-0.1.5",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -556,7 +556,7 @@
           },
           {
             "name": "takumi",
-            "package_key": "pleme-io-takumi-0.1.2",
+            "package_key": "pleme-io-takumi-0.1.5",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -566,7 +566,7 @@
           },
           {
             "name": "sekkei",
-            "package_key": "sekkei-0.1.1",
+            "package_key": "sekkei-0.1.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -620,7 +620,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "pleme-io-takumi-0.1.2": {
+      "pleme-io-takumi-0.1.5": {
         "runtime_dependencies": [
           {
             "name": "indexmap",
@@ -636,7 +636,7 @@
           },
           {
             "name": "sekkei",
-            "package_key": "sekkei-0.1.1",
+            "package_key": "sekkei-0.1.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1016,7 +1016,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "sekkei-0.1.1": {
+      "sekkei-0.1.3": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -2776,7 +2776,7 @@
     "openapi-forge-0.1.7": {
       "edition": "2024"
     },
-    "pleme-io-takumi-0.1.2": {
+    "pleme-io-takumi-0.1.5": {
       "edition": "2024"
     },
     "ppv-lite86-0.2.21": {
@@ -2821,7 +2821,7 @@
     "ryu-1.0.23": {
       "edition": "2021"
     },
-    "sekkei-0.1.1": {
+    "sekkei-0.1.3": {
       "edition": "2024"
     },
     "serde-1.0.229": {

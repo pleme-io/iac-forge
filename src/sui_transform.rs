@@ -192,8 +192,8 @@ mod tests {
     #[test]
     fn float_value_preserved() {
         assert_eq!(
-            value_to_sexpr(&Value::Float(3.14)).unwrap(),
-            SExpr::Float(3.14)
+            value_to_sexpr(&Value::Float(2.75)).unwrap(),
+            SExpr::Float(2.75)
         );
     }
 
