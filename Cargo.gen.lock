@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "38a3307d485ab5fead28238176f9ecec95929dfbe2f739cba248d3f16294d203",
+  "cargo_lock_sha256": "aa3135e0bec5fafb48cc4134b984d2b37137ac851a9609de6e04224f4673bc4c",
   "manifest_sha256": {
     "Cargo.toml": "ea5b7b192990ae1ff816ff8e70c456a1300d169637ef1a8875a2a7875060ff3d"
   },
@@ -251,102 +251,6 @@
           "std"
         ]
       },
-      "getrandom-0.4.3": {
-        "runtime_dependencies": [
-          {
-            "name": "cfg_if",
-            "package_key": "cfg-if-1.0.5",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), not(any(all(target_os = \"linux\", target_env = \"\"), getrandom_backend = \"custom\", getrandom_backend = \"linux_raw\", getrandom_backend = \"rdrand\", getrandom_backend = \"rndr\"))))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"hurd\", target_os = \"illumos\", target_os = \"cygwin\", all(target_os = \"horizon\", target_arch = \"arm\")))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"haiku\", target_os = \"redox\", target_os = \"nto\", target_os = \"aix\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"watchos\", target_os = \"tvos\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"macos\", target_os = \"openbsd\", target_os = \"vita\", target_os = \"emscripten\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"netbsd\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"solaris\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"vxworks\")",
-            "tree": "target"
-          }
-        ],
-        "build_dependencies": [],
-        "features": []
-      },
       "hashbrown-0.17.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -376,7 +280,7 @@
           },
           {
             "name": "openapi_forge",
-            "package_key": "openapi-forge-0.1.7",
+            "package_key": "openapi-forge-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -386,7 +290,7 @@
           },
           {
             "name": "takumi",
-            "package_key": "pleme-io-takumi-0.1.5",
+            "package_key": "pleme-io-takumi-0.1.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -535,7 +439,7 @@
           "std"
         ]
       },
-      "openapi-forge-0.1.7": {
+      "openapi-forge-0.1.9": {
         "runtime_dependencies": [
           {
             "name": "indexmap",
@@ -551,7 +455,7 @@
           },
           {
             "name": "takumi",
-            "package_key": "pleme-io-takumi-0.1.5",
+            "package_key": "pleme-io-takumi-0.1.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -561,7 +465,7 @@
           },
           {
             "name": "sekkei",
-            "package_key": "sekkei-0.1.3",
+            "package_key": "sekkei-0.2.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -592,8 +496,8 @@
             "tree": "target"
           },
           {
-            "name": "serde_yaml_ng",
-            "package_key": "serde_yaml_ng-0.10.0",
+            "name": "serde_norway",
+            "package_key": "serde_norway-0.9.42",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -615,7 +519,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "pleme-io-takumi-0.1.5": {
+      "pleme-io-takumi-0.1.6": {
         "runtime_dependencies": [
           {
             "name": "indexmap",
@@ -631,7 +535,7 @@
           },
           {
             "name": "sekkei",
-            "package_key": "sekkei-0.1.3",
+            "package_key": "sekkei-0.2.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1011,7 +915,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "sekkei-0.1.3": {
+      "sekkei-0.2.2": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -1036,8 +940,8 @@
             "tree": "target"
           },
           {
-            "name": "serde_yaml_ng",
-            "package_key": "serde_yaml_ng-0.10.0",
+            "name": "serde_norway",
+            "package_key": "serde_norway-0.9.42",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1197,25 +1101,7 @@
           "std"
         ]
       },
-      "serde_spanned-0.6.9": {
-        "runtime_dependencies": [
-          {
-            "name": "serde",
-            "package_key": "serde-1.0.229",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          }
-        ],
-        "build_dependencies": [],
-        "features": [
-          "serde"
-        ]
-      },
-      "serde_yaml_ng-0.10.0": {
+      "serde_norway-0.9.42": {
         "runtime_dependencies": [
           {
             "name": "indexmap",
@@ -1258,8 +1144,8 @@
             "tree": "target"
           },
           {
-            "name": "unsafe_libyaml",
-            "package_key": "unsafe-libyaml-0.2.11",
+            "name": "unsafe_libyaml_norway",
+            "package_key": "unsafe-libyaml-norway-0.2.15",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1270,6 +1156,24 @@
         ],
         "build_dependencies": [],
         "features": []
+      },
+      "serde_spanned-0.6.9": {
+        "runtime_dependencies": [
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.229",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "serde"
+        ]
       },
       "shlex-2.0.1": {
         "runtime_dependencies": [],
@@ -1336,7 +1240,7 @@
           },
           {
             "name": "getrandom",
-            "package_key": "getrandom-0.4.3",
+            "package_key": "getrandom-0.3.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -1597,7 +1501,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "unsafe-libyaml-0.2.11": {
+      "unsafe-libyaml-norway-0.2.15": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -2665,10 +2569,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "getrandom-0.4.3": {
-      "edition": "2024",
-      "build_script": "build.rs"
-    },
     "hashbrown-0.17.1": {
       "edition": "2024"
     },
@@ -2705,10 +2605,10 @@
     "once_cell-1.21.4": {
       "edition": "2021"
     },
-    "openapi-forge-0.1.7": {
+    "openapi-forge-0.1.9": {
       "edition": "2024"
     },
-    "pleme-io-takumi-0.1.5": {
+    "pleme-io-takumi-0.1.6": {
       "edition": "2024"
     },
     "ppv-lite86-0.2.21": {
@@ -2753,7 +2653,7 @@
     "ryu-1.0.23": {
       "edition": "2021"
     },
-    "sekkei-0.1.3": {
+    "sekkei-0.2.2": {
       "edition": "2024"
     },
     "serde-1.0.229": {
@@ -2772,10 +2672,10 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "serde_spanned-0.6.9": {
+    "serde_norway-0.9.42": {
       "edition": "2021"
     },
-    "serde_yaml_ng-0.10.0": {
+    "serde_spanned-0.6.9": {
       "edition": "2021"
     },
     "shlex-2.0.1": {
@@ -2813,7 +2713,7 @@
     "unicode-ident-1.0.26": {
       "edition": "2021"
     },
-    "unsafe-libyaml-0.2.11": {
+    "unsafe-libyaml-norway-0.2.15": {
       "edition": "2021",
       "binaries": [
         {
